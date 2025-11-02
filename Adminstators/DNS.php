@@ -1,5 +1,43 @@
 <?php
-include('Connect/Header.php'); 
+include('Connect/Header.php');
+include_once(__DIR__.'/../Repositories/HistoryRepository.php');
+$historyRepo = new HistoryRepository($connect);
+
+// Lấy danh sách ticket TRƯỚC khi xử lý POST (để tránh lỗi khi dùng $resultRows)
+$resultRows = $historyRepo->listByAhihi('1');
+
+// Xử lý POST request - Phải đặt TRƯỚC phần hiển thị
+if(isset($_POST['gui'])){
+    $id = $_POST['uid'] ?? 0;
+    $ns1 = $_POST['ns1'] ?? '';
+    $ns2 = $_POST['ns2'] ?? '';
+    $trangthai = $_POST['trangthai'] ?? '1';
+    
+    // Cập nhật NS1, NS2 và trạng thái
+    $ok = $historyRepo->updateDnsAndStatusById((int)$id, $ns1, $ns2, $trangthai);
+    
+    if($ok){
+        echo '<script>swal("Thông Báo", "Cập Nhật DNS Thành Công!", "success");</script>';
+        echo '<meta http-equiv="refresh" content="1;url=">';
+    } else {
+        echo '<script>swal("Thông Báo", "Cập Nhật Thất Bại!", "error");</script>';
+        // Refresh lại dữ liệu sau khi thất bại
+        $resultRows = $historyRepo->listByAhihi('1');
+    }
+}
+
+if(isset($_POST['xoa'])){
+    $id = $_POST['id'] ?? 0;
+    $ok = $historyRepo->updateAhihiAndStatusById((int)$id, '0', '4');
+    if($ok){
+        echo '<script>swal("Thông Báo", "Cập Nhật Thành Công!", "success");</script>';
+        echo '<meta http-equiv="refresh" content="1;url=">';
+    } else {
+        echo '<script>swal("Thông Báo", "Cập Nhật Thất Bại!", "error");</script>';
+        // Refresh lại dữ liệu sau khi thất bại
+        $resultRows = $historyRepo->listByAhihi('1');
+    }
+}
 ?>
 
 <div class="col-span-12 mt-6">
@@ -27,9 +65,6 @@ include('Connect/Header.php');
             </thead>
             <tbody>
                 <?php
-                include_once(__DIR__.'/../Repositories/HistoryRepository.php');
-                $historyRepo = new HistoryRepository($connect);
-                $resultRows = $historyRepo->listByAhihi('1');
                 foreach ($resultRows as $cloudstorevn){
                 ?>
                 <tr class="intro-x">
@@ -64,15 +99,6 @@ include('Connect/Header.php');
 </div>
 
 <?php
-if(isset($_POST['gui'])){
-    $traloi = $_POST['traloi'];
-    $id = $_POST['uid'];
-    $trangthai = $_POST['trangthai'];
-    $historyRepo->updateAhihiAndStatusById((int)$id, '0', '1');
-    echo '<script>swal("Thông Báo", "Trả Lời Thành Công!", "success");</script>';
-    echo '<meta http-equiv="refresh" content="1;url=">';
-}
-
 foreach ($resultRows as $cloudstorevn){
 ?>
 <div id="delete-modal-preview-<?=$cloudstorevn['id'];?>" class="modal" tabindex="-1" aria-hidden="true">
@@ -136,15 +162,6 @@ foreach ($resultRows as $cloudstorevn){
     </div>
 </div>
 <?php } ?>
-
-<?php
-if(isset($_POST['xoa'])){
-    $id = $_POST['id'];
-    $historyRepo->updateAhihiAndStatusById((int)$id, '0', '4');
-    echo '<script>swal("Thông Báo", "Cập Nhật Thành Công!", "success");</script>';
-    echo '<meta http-equiv="refresh" content="1;url=">';
-}
-?>
 
 <?php
 include('Connect/Footer.php'); 

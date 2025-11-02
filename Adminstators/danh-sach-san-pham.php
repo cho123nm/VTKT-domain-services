@@ -73,11 +73,11 @@ foreach ($resultRows as $cloudstorevn){
                     <div class="text-slate-500 mt-2"> Sau Khi Thực Hiện Xóa Sẽ Không Thể Khôi Phục Nó! </div>
                     <form action="" method="post">
                         <input type="hidden" name="id" value="<?=$cloudstorevn['id'];?>">
+                        <div class="px-5 pb-8 text-center">
+                            <a data-tw-dismiss="modal" class="btn btn-outline-secondary w-24 mr-1"> Đóng </a>
+                            <button type="submit" name="xoa" class="btn btn-danger w-24"> Xóa</button>
+                        </div>
                     </form>
-                </div>
-                <div class="px-5 pb-8 text-center">
-                    <a data-tw-dismiss="modal" class="btn btn-outline-secondary w-24 mr-1"> Đóng </a>
-                    <button type="submit" name="xoa" class="btn btn-danger w-24"> Xóa</button>
                 </div>
             </div>
         </div>

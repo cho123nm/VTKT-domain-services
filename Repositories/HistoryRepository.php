@@ -137,6 +137,16 @@ class HistoryRepository {
         return $ok;
     }
 
+    // Cập nhật DNS (NS1, NS2) và trạng thái cho ticket - dùng cho admin
+    public function updateDnsAndStatusById(int $id, string $ns1, string $ns2, string $status): bool
+    {
+        $stmt = $this->mysqli->prepare("UPDATE History SET ns1 = ?, ns2 = ?, ahihi = '0', status = ? WHERE id = ?");
+        $stmt->bind_param('sssi', $ns1, $ns2, $status, $id);
+        $ok = $stmt->execute();
+        $stmt->close();
+        return $ok;
+    }
+
     //xóa đơn hàng dựa trên id trong bảng history
     public function deleteById(int $id): bool
     {
