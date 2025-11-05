@@ -18,10 +18,11 @@ Hệ thống quản lý và bán tên miền trực tuyến.
 ### Bước 2: Import Database (nếu có file SQL)
 
 1. **Mở phpMyAdmin**
+
    - Truy cập: `http://localhost/phpmyadmin`
 
 2. **Import Database**
-   - Chọn database `tenmien` (hoặc tên database của bạn)
+   - Chọn database `tenmien`
    - Click tab **"Import"**
    - Chọn file SQL
    - Click **"Go"**
