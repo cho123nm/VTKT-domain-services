@@ -106,41 +106,6 @@ if(isset($_GET['false'])){
     </div>
 </div>
 
-<?php
-foreach ($resultRows as $cloudstorevn){
-?>
-<div id="delete-modal-preview-<?=$cloudstorevn['id'];?>" class="modal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-body p-0">
-                <div class="p-5 text-center">
-                    <i data-lucide="x-circle" class="w-16 h-16 text-danger mx-auto mt-3"></i>
-                    <div class="text-3xl mt-5">Bạn Có Chắc Muốn Xóa Nó?</div>
-                    <div class="text-slate-500 mt-2"> Sau Khi Thực Hiện Xóa Sẽ Không Thể Khôi Phục Nó! </div>
-                    <form action="" method="post">
-                        <input type="hidden" name="id" value="<?=$cloudstorevn['id'];?>">
-                    </form>
-                </div>
-                <div class="px-5 pb-8 text-center">
-                    <a data-tw-dismiss="modal" class="btn btn-outline-secondary w-24 mr-1"> Đóng </a>
-                    <button type="submit" name="xoa" class="btn btn-danger w-24"> Xóa</button>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-<?php } ?>
-
-<?php
-if(isset($_POST['xoa'])){
-    $id = $_POST['id'];
-    include_once(__DIR__.'/../Repositories/HistoryRepository.php');
-    $historyRepo = new HistoryRepository($connect);
-    $historyRepo->deleteById((int)$id);
-    echo '<script>swal("Thông Báo", "Xóa Thành Công!", "success");</script>';
-    echo '<meta http-equiv="refresh" content="1;url=">';
-}
-?>
 
 <?php
 include('Connect/Footer.php'); 

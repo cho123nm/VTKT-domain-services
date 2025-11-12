@@ -1,83 +1,62 @@
-# 🌐 CloudStoreVN - Hệ Thống Bán Tên Miền
+# CloudStoreVN
 
-Hệ thống quản lý và bán tên miền trực tuyến.
+> Hệ thống bán và quản lý tên miền trực tuyến dành cho CloudStoreVN.
 
-## 📋 Hướng Dẫn Chạy Dự Án
+## Highlights
+- Quản trị danh sách tên miền, giá, thông tin DNS và lịch sử giao dịch.
+- Duyệt, tạm ngưng hoặc từ chối đơn hàng với bảng điều khiển trực quan.
+- Lưu vết hoạt động người dùng: nạp tiền, lịch sử đặt mua, cập nhật trạng thái.
+- Giao diện admin sử dụng bộ component Tailwind + Lucide Icons, dễ mở rộng.
 
-### Bước 1: Mở XAMPP
+## Tech Stack
+- PHP (chạy trên môi trường XAMPP)
+- MySQL
+- HTML/CSS (Tailwind-based admin template)
+- JavaScript (Lucide Icons, SweetAlert)
 
-1. **Khởi động XAMPP Control Panel**
+## Getting Started
 
-   - Tìm và mở ứng dụng **XAMPP Control Panel**
+### 1. Chuẩn bị
+- Cài đặt [XAMPP](https://www.apachefriends.org/).
+- Đảm bảo Apache và MySQL chưa bị ứng dụng khác chiếm port.
 
-2. **Start Apache và MySQL**
-   - Click nút **Start** cho **Apache**
-   - Click nút **Start** cho **MySQL**
-   - Đảm bảo cả 2 service đều hiển thị màu xanh (running)
+### 2. Khởi chạy dịch vụ
+1. Mở **XAMPP Control Panel**.
+2. Start **Apache** và **MySQL** (biểu tượng chuyển xanh).
 
-### Bước 2: Import Database (nếu có file SQL)
+### 3. Triển khai mã nguồn
+1. Sao chép dự án vào `C:\xampp\htdocs\CloudStoreVN` (hoặc đường dẫn bạn mong muốn dưới `htdocs`).
+2. (Tùy chọn) Cập nhật `httpd-vhosts.conf` nếu muốn cấu hình virtual host riêng.
 
-1. **Mở phpMyAdmin**
+### 4. Khôi phục cơ sở dữ liệu
+1. Truy cập `http://localhost/phpmyadmin`.
+2. Tạo database `tenmien` (hoặc tên bạn đang sử dụng).
+3. Import file `.sql` đi kèm (nếu có) bằng tab **Import**.
 
-   - Truy cập: `http://localhost/phpmyadmin`
-
-2. **Import Database**
-   - Chọn database `tenmien`
-   - Click tab **"Import"**
-   - Chọn file SQL
-   - Click **"Go"**
-
-### Bước 3: Cấu Hình Database
-
-1. **Mở file cấu hình**: `Config/DatabaseConnection.php`
-2. **Kiểm tra thông tin kết nối** (mặc định XAMPP):
+### 5. Cấu hình kết nối
+Mở `Config/DatabaseConnection.php` và điều chỉnh thông tin cho phù hợp:
 
 ```php
 $servername = 'localhost';
 $database   = 'tenmien';
 $username   = 'root';
-$password   = '';  // Nếu MySQL có password thì điền vào đây
+$password   = ''; // Điền mật khẩu MySQL nếu có
 ```
 
-### Bước 4: Copy Project vào htdocs
+### 6. Truy cập ứng dụng
+- Frontend người dùng: `http://localhost/CloudStoreVN/`
+- Trang quản trị: `http://localhost/CloudStoreVN/Adminstators/`
 
-1. Copy toàn bộ project vào thư mục: `C:\xampp\htdocs\`
-2. Đảm bảo các file và thư mục đã được copy đầy đủ
+## Đường Dẫn Tham Khảo
+- `http://localhost/CloudStoreVN/auth/register` – Đăng ký tài khoản.
+- `http://localhost/CloudStoreVN/Recharge` – Người dùng nạp tiền.
+- `http://localhost/CloudStoreVN/Adminstators/danh-sach-san-pham.php` – Quản lý sản phẩm/domain.
+- `http://localhost/CloudStoreVN/Adminstators/duyet-don-hang.php` – Duyệt đơn hàng & cập nhật trạng thái.
 
-### Bước 5: Chạy Ứng Dụng
+## Troubleshooting
+- **Không kết nối được DB**: kiểm tra MySQL đã chạy và cấu hình `Config/DatabaseConnection.php`.
+- **Port 80 bận**: tắt ứng dụng khác đang dùng port 80 (Skype, IIS, v.v.) hoặc đổi port Apache trong XAMPP.
+- **Trình duyệt không tải được giao diện**: xóa cache trình duyệt hoặc bảo đảm đường dẫn project trong `htdocs` chính xác.
 
-1. **Mở trình duyệt web**
-2. **Truy cập**: `http://localhost/`
-
-Nếu thấy giao diện trang chủ → Thành công! ✅
-
-## 🔗 Các Đường Dẫn Trang
-
-### Trang Chính
-
-- **Trang chủ**: `http://localhost/`
-- **Đăng ký**: `http://localhost/auth/register`
-- **Đăng nhập**: `http://localhost/auth/login`
-
-### Trang Người Dùng
-
-- **Nạp tiền**: `http://localhost/Recharge`
-- **Quản lý tên miền**: `http://localhost/Manager`
-- **Hồ sơ tài khoản**: `http://localhost/profile`
-
-### Trang Admin
-
-- **Admin Panel**: `http://localhost/Adminstators/`
-- **Dashboard**: `http://localhost/Adminstators/index.php`
-- **Quản lý sản phẩm**: `http://localhost/Adminstators/danh-sach-san-pham.php`
-- **Duyệt đơn hàng**: `http://localhost/Adminstators/duyet-don-hang.php`
-
-## ⚠️ Lưu Ý
-
-- Luôn bật **Apache** và **MySQL** trong XAMPP Control Panel
-- Nếu có lỗi "Error Connect Database", kiểm tra MySQL đã chạy và thông tin kết nối trong `Config/DatabaseConnection.php`
-- Nếu port 80 bị chiếm, đổi port Apache hoặc tắt ứng dụng đang dùng port 80
-
----
-
-**Chúc bạn chạy thành công! 🚀**
+## Maintainer
+- Đàm Thanh Vũ — thanhvuaws@gmail.com
