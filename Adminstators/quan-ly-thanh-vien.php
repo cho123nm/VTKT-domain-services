@@ -94,7 +94,6 @@ foreach ($rows as $cloudstorevn){
 if(isset($_POST['gui'])){
     $id = $_POST['uid'];
     $tien = $_POST['tien'];
-    $trangthai = $_POST['trangthai'];
     include_once(__DIR__.'/../Repositories/UserRepository.php');
     $userRepo = new UserRepository($connect);
     $userRepo->updateBalance((int)$id, (int)$tien);
