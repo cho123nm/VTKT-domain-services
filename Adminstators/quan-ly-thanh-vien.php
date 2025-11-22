@@ -55,9 +55,7 @@ include('Connect/Header.php');
 
 <?php
 $rows = $userRepo->listAll();
-$id = '0';
 foreach ($rows as $cloudstorevn){
-    $id++;
 ?>
 <div id="header-footer-modal-preview-<?=$cloudstorevn['id'];?>" class="modal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
