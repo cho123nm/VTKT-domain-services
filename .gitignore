@@ -1,6 +1,37 @@
+# Laravel
+/node_modules
+/public/hot
+/public/storage
+/storage/*.key
+/vendor
+.env
+.env.backup
+.env.production
+.phpunit.result.cache
+Homestead.json
+Homestead.yaml
+auth.json
+npm-debug.log
+yarn-error.log
+/.fleet
+/.idea
+/.vscode
+
 # Documentation files
 Adminstators/docs/
 
 # Log files
 logs/error.log
+storage/logs/*.log
+
+# Database
+*.sql
+!tenmien.sql.example
+
+# Docker
+.docker/
+
+# Problematic files/symlinks
+public/Adminstators
+public/assets
 

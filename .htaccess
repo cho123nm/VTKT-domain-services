@@ -2,13 +2,18 @@
 RewriteEngine on
 RewriteCond %{HTTPS} off
 
-# User-friendly routes (sử dụng file cũ)
-RewriteRule ^profile$ /Pages/account_profile.php [L]
-RewriteRule ^Checkout$ /Pages/Checkout.php [L]
-RewriteRule ^auth/login$ /Pages/login.php [L]
-RewriteRule ^auth/register$ /Pages/register.php [L]
-RewriteRule ^auth/logout$ /Pages/logout.php [L]
-RewriteRule ^Manager$ /Pages/managers.php [L]
-RewriteRule ^Recharge$ /Pages/Recharge.php [L]
-RewriteRule ^ManagesWhois/([a-zA-Z0-9_-]+)$ /Pages/ManagesWhois.php?domain=$1 [L]
+# Redirect to Laravel public folder
+RewriteCond %{REQUEST_URI} !^/domain/public/
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ /domain/public/$1 [L]
 
+# User-friendly routes - redirect to Laravel routes
+RewriteRule ^profile$ /domain/public/profile [L,R=301]
+RewriteRule ^Checkout$ /domain/public/checkout/domain [L,R=301]
+RewriteRule ^auth/login$ /domain/public/auth/login [L,R=301]
+RewriteRule ^auth/register$ /domain/public/auth/register [L,R=301]
+RewriteRule ^auth/logout$ /domain/public/auth/logout [L,R=301]
+RewriteRule ^Manager$ /domain/public/manager [L,R=301]
+RewriteRule ^Recharge$ /domain/public/recharge [L,R=301]
+RewriteRule ^ManagesWhois/([a-zA-Z0-9_-]+)$ /domain/public/manager/domain/$1 [L,R=301]

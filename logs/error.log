@@ -1,2 +1,130 @@
 
 
+[2025-11-29 00:05:47] Error: Cannot modify header information - headers already sent by (output started at C:\xampp\htdocs\Config\Header.php:50) in C:\xampp\htdocs\Pages\Messages.php:21
+URL: /Pages/Messages.php?mark_read=1
+IP: ::1
+
+
+[2025-12-01 22:33:52] Error: Trying to access array offset on value of type null in C:\xampp\htdocs\domain\Pages\Messages.php:33
+URL: /domain/Pages/Messages.php
+IP: ::1
+
+
+[2025-12-01 22:34:12] Error: Trying to access array offset on value of type null in C:\xampp\htdocs\domain\Pages\Feedback.php:62
+URL: /domain/Pages/Feedback.php
+IP: ::1
+
+
+[2025-12-01 22:34:12] Error: Trying to access array offset on value of type null in C:\xampp\htdocs\domain\Pages\Feedback.php:123
+URL: /domain/Pages/Feedback.php
+IP: ::1
+
+
+[2025-12-28 18:41:28] Error: include_once(C:\xampp\htdocs\domain\Config/../Repositories/SourceCodeRepository.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\domain\Config\Database.php:16
+URL: /domain/
+IP: ::1
+
+
+[2025-12-28 18:41:28] Error: include_once(): Failed opening 'C:\xampp\htdocs\domain\Config/../Repositories/SourceCodeRepository.php' for inclusion (include_path='C:\xampp\php\PEAR') in C:\xampp\htdocs\domain\Config\Database.php:16
+URL: /domain/
+IP: ::1
+
+
+[2025-12-28 18:41:28] Error: include_once(C:\xampp\htdocs\domain\Config/../Repositories/HostingRepository.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\domain\Config\Database.php:17
+URL: /domain/
+IP: ::1
+
+
+[2025-12-28 18:41:28] Error: include_once(): Failed opening 'C:\xampp\htdocs\domain\Config/../Repositories/HostingRepository.php' for inclusion (include_path='C:\xampp\php\PEAR') in C:\xampp\htdocs\domain\Config\Database.php:17
+URL: /domain/
+IP: ::1
+
+
+[2025-12-28 18:41:28] Error: include_once(C:\xampp\htdocs\domain\Config/../Repositories/VPSRepository.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\domain\Config\Database.php:18
+URL: /domain/
+IP: ::1
+
+
+[2025-12-28 18:41:28] Error: include_once(): Failed opening 'C:\xampp\htdocs\domain\Config/../Repositories/VPSRepository.php' for inclusion (include_path='C:\xampp\php\PEAR') in C:\xampp\htdocs\domain\Config\Database.php:18
+URL: /domain/
+IP: ::1
+
+
+[2025-12-28 18:41:28] Error: include_once(C:\xampp\htdocs\domain\Config/../Repositories/SourceCodeHistoryRepository.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\domain\Config\Database.php:19
+URL: /domain/
+IP: ::1
+
+
+[2025-12-28 18:41:28] Error: include_once(): Failed opening 'C:\xampp\htdocs\domain\Config/../Repositories/SourceCodeHistoryRepository.php' for inclusion (include_path='C:\xampp\php\PEAR') in C:\xampp\htdocs\domain\Config\Database.php:19
+URL: /domain/
+IP: ::1
+
+
+[2025-12-28 18:41:28] Error: include_once(C:\xampp\htdocs\domain\Config/../Repositories/HostingHistoryRepository.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\domain\Config\Database.php:20
+URL: /domain/
+IP: ::1
+
+
+[2025-12-28 18:41:28] Error: include_once(): Failed opening 'C:\xampp\htdocs\domain\Config/../Repositories/HostingHistoryRepository.php' for inclusion (include_path='C:\xampp\php\PEAR') in C:\xampp\htdocs\domain\Config\Database.php:20
+URL: /domain/
+IP: ::1
+
+
+[2025-12-28 18:41:28] Error: include_once(C:\xampp\htdocs\domain\Config/../Repositories/VPSHistoryRepository.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\domain\Config\Database.php:21
+URL: /domain/
+IP: ::1
+
+
+[2025-12-28 18:41:28] Error: include_once(): Failed opening 'C:\xampp\htdocs\domain\Config/../Repositories/VPSHistoryRepository.php' for inclusion (include_path='C:\xampp\php\PEAR') in C:\xampp\htdocs\domain\Config\Database.php:21
+URL: /domain/
+IP: ::1
+
+
+[2025-12-29 00:47:05] Exception: Table 'tenmien.sourcecode' doesn't exist in C:\xampp\htdocs\domain\Repositories\SourceCodeRepository.php:24
+URL: /domain/Pages/SourceCode.php
+IP: ::1
+Stack trace:
+#0 C:\xampp\htdocs\domain\Repositories\SourceCodeRepository.php(24): mysqli->prepare('SELECT * FROM S...')
+#1 C:\xampp\htdocs\domain\Pages\SourceCode.php(5): SourceCodeRepository->listAll()
+#2 {main}
+
+[2025-12-29 01:02:19] Error: move_uploaded_file(C:\xampp\htdocs\domain\Adminstators/../uploads/source-code/1766944939_glfw-3.4.bin.WIN64.zip): Failed to open stream: No such file or directory in C:\xampp\htdocs\domain\Adminstators\them-source-code.php:35
+URL: /domain/Adminstators/them-source-code.php
+IP: ::1
+
+
+[2025-12-29 01:02:19] Error: move_uploaded_file(): Unable to move &quot;C:\xampp\tmp\php62DB.tmp&quot; to &quot;C:\xampp\htdocs\domain\Adminstators/../uploads/source-code/1766944939_glfw-3.4.bin.WIN64.zip&quot; in C:\xampp\htdocs\domain\Adminstators\them-source-code.php:35
+URL: /domain/Adminstators/them-source-code.php
+IP: ::1
+
+
+[2025-12-29 01:05:48] Error: move_uploaded_file(C:\xampp\htdocs\domain\Adminstators/../uploads/source-code/1766945148_glfw-3.4.bin.WIN64.zip): Failed to open stream: No such file or directory in C:\xampp\htdocs\domain\Adminstators\them-source-code.php:35
+URL: /domain/Adminstators/them-source-code.php
+IP: ::1
+
+
+[2025-12-29 01:05:48] Error: move_uploaded_file(): Unable to move &quot;C:\xampp\tmp\php9392.tmp&quot; to &quot;C:\xampp\htdocs\domain\Adminstators/../uploads/source-code/1766945148_glfw-3.4.bin.WIN64.zip&quot; in C:\xampp\htdocs\domain\Adminstators\them-source-code.php:35
+URL: /domain/Adminstators/them-source-code.php
+IP: ::1
+
+
+[2025-12-29 01:06:17] Error: move_uploaded_file(C:\xampp\htdocs\domain\Adminstators/../uploads/source-code/1766945177_glfw-3.4.bin.WIN64.zip): Failed to open stream: No such file or directory in C:\xampp\htdocs\domain\Adminstators\them-source-code.php:35
+URL: /domain/Adminstators/them-source-code.php
+IP: ::1
+
+
+[2025-12-29 01:06:17] Error: move_uploaded_file(): Unable to move &quot;C:\xampp\tmp\php4AC.tmp&quot; to &quot;C:\xampp\htdocs\domain\Adminstators/../uploads/source-code/1766945177_glfw-3.4.bin.WIN64.zip&quot; in C:\xampp\htdocs\domain\Adminstators\them-source-code.php:35
+URL: /domain/Adminstators/them-source-code.php
+IP: ::1
+
+
+[2025-12-29 01:08:23] Error: Trying to access array offset on value of type null in C:\xampp\htdocs\domain\Pages\CheckoutSourceCode.php:20
+URL: /domain/Pages/CheckoutSourceCode.php?id=1
+IP: ::1
+
+
+[2025-12-29 01:08:23] Error: Trying to access array offset on value of type null in C:\xampp\htdocs\domain\Pages\CheckoutSourceCode.php:40
+URL: /domain/Pages/CheckoutSourceCode.php?id=1
+IP: ::1
+
+

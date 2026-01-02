@@ -10,6 +10,12 @@ var KTSignupGeneral = function() {
 
     // Handle form
     var handleForm  = function(e) {
+        // Kiểm tra form và submitButton có tồn tại không
+        if (!form || !submitButton) {
+            console.warn('KTSignupGeneral: Form or submit button not found, cannot initialize form validation');
+            return;
+        }
+        
         // Init form validation rules. For more info check the FormValidation plugin's official documentation:https://formvalidation.io/
         validator = FormValidation.formValidation(
 			form,
@@ -171,6 +177,13 @@ var KTSignupGeneral = function() {
             // Elements
             form = document.querySelector('#kt_sign_up_form');
             submitButton = document.querySelector('#kt_sign_up_submit');
+            
+            // Chỉ khởi tạo nếu form và button tồn tại
+            if (!form || !submitButton) {
+                console.log('KTSignupGeneral: Form or submit button not found, skipping initialization');
+                return;
+            }
+            
             passwordMeter = KTPasswordMeter.getInstance(form.querySelector('[data-kt-password-meter="true"]'));
 
             handleForm ();

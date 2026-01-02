@@ -9,6 +9,12 @@ var KTSigninGeneral = function() {
 
     // Handle form
     var handleForm = function(e) {
+        // Kiểm tra form và submitButton có tồn tại không
+        if (!form || !submitButton) {
+            console.warn('KTSigninGeneral: Form or submit button not found, cannot initialize form validation');
+            return;
+        }
+        
         // Init form validation rules. For more info check the FormValidation plugin's official documentation:https://formvalidation.io/
         validator = FormValidation.formValidation(
 			form,
@@ -111,6 +117,12 @@ var KTSigninGeneral = function() {
         init: function() {
             form = document.querySelector('#kt_sign_in_form');
             submitButton = document.querySelector('#kt_sign_in_submit');
+            
+            // Chỉ khởi tạo nếu form và button tồn tại
+            if (!form || !submitButton) {
+                console.log('KTSigninGeneral: Form or submit button not found, skipping initialization');
+                return;
+            }
             
             handleForm();
         }

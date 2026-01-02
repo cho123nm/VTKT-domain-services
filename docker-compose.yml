@@ -1,0 +1,62 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: domain_app
+    restart: unless-stopped
+    working_dir: /var/www/html
+    volumes:
+      - ./:/var/www/html
+      - ./docker/php/local.ini:/usr/local/etc/php/conf.d/local.ini
+    networks:
+      - domain-network
+    ports:
+      - "8000:80"
+    depends_on:
+      - db
+    environment:
+      - APP_ENV=local
+      - APP_DEBUG=true
+
+  db:
+    image: mysql:8.0
+    container_name: domain_db
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: tenmien
+      MYSQL_ROOT_PASSWORD: root
+    volumes:
+      - dbdata:/var/lib/mysql
+      - ./tenmien.sql:/docker-entrypoint-initdb.d/tenmien.sql
+    networks:
+      - domain-network
+    ports:
+      - "3307:3306"
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: domain_phpmyadmin
+    restart: unless-stopped
+    environment:
+      PMA_HOST: db
+      PMA_PORT: 3306
+      PMA_USER: root
+      PMA_PASSWORD: root
+    networks:
+      - domain-network
+    ports:
+      - "8080:80"
+    depends_on:
+      - db
+
+networks:
+  domain-network:
+    driver: bridge
+
+volumes:
+  dbdata:
+    driver: local
+
