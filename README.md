@@ -1,5 +1,7 @@
 # 🚀 THANHVU.NET V4 - Hệ Thống Quản Lý Dịch Vụ Số
 
+> 📖 **Hướng dẫn cài đặt chi tiết:** Xem file [HUONG_DAN_CAI_DAT.md](./HUONG_DAN_CAI_DAT.md) để biết các bước cài đặt từ đầu cho người mới.
+
 ## 📋 Tổng Quan
 
 **THANHVU.NET V4** là hệ thống bán hàng dịch vụ số (Domain, Hosting, VPS, Source Code) được xây dựng hoàn toàn bằng **Laravel Framework**. Hệ thống cung cấp đầy đủ tính năng quản lý cho cả người dùng và admin, với giao diện hiện đại, responsive và bảo mật cao.
