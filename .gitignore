@@ -35,3 +35,6 @@ storage/logs/*.log
 public/Adminstators
 public/assets
 
+# Documentation for learning (not for public)
+HUONG_DAN_CODE.md
+
