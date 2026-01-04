@@ -361,6 +361,7 @@ Response → Browser
 #### **AJAX Routes (API):**
 **Lưu ý:** Tất cả API routes đều có middleware `web` để đảm bảo session hoạt động đúng cách.
 
+**Routes trong `routes/api.php`:**
 | Route | Method | Controller | Mô Tả |
 |-------|--------|------------|-------|
 | `/api/check-domain` | POST | `AjaxController@checkDomain` | Kiểm tra domain (WHOIS) |
@@ -370,6 +371,28 @@ Response → Browser
 | `/api/buy-sourcecode` | POST | `AjaxController@buySourceCode` | Mua source code (AJAX) - **Đã fix session** |
 | `/api/update-dns` | POST | `AjaxController@updateDns` | Cập nhật DNS (AJAX) - **Đã fix session** |
 | `/api/recharge-card` | POST | `AjaxController@rechargeCard` | Xử lý thẻ cào (AJAX) - **Đã fix session** |
+
+**Routes trong `routes/web.php` (prefix `/ajax`):**
+| Route | Method | Controller | Mô Tả |
+|-------|--------|------------|-------|
+| `/ajax/check-domain` | POST | `AjaxController@checkDomain` | Kiểm tra domain (WHOIS) |
+| `/ajax/buy-domain` | POST | `DomainController@buy` | Mua domain (AJAX) |
+| `/ajax/buy-hosting` | POST | `AjaxController@buyHosting` | Mua hosting (AJAX) |
+| `/ajax/buy-vps` | POST | `AjaxController@buyVPS` | Mua VPS (AJAX) |
+| `/ajax/buy-source-code` | POST | `AjaxController@buySourceCode` | Mua source code (AJAX) |
+| `/ajax/update-dns` | POST | `DomainController@updateDns` | Cập nhật DNS (AJAX) |
+| `/ajax/cards` | POST | `PaymentController@processCard` | Xử lý thẻ cào (AJAX) |
+
+**Legacy Routes (redirect từ code cũ):**
+| Route | Method | Controller | Mô Tả |
+|-------|--------|------------|-------|
+| `/Ajaxs/CheckDomain.php` | POST | `AjaxController@checkDomain` | Legacy - Kiểm tra domain |
+| `/Ajaxs/BuyDomain.php` | POST | `AjaxController@buyDomain` | Legacy - Mua domain |
+| `/Ajaxs/BuyHosting.php` | POST | `AjaxController@buyHosting` | Legacy - Mua hosting |
+| `/Ajaxs/BuyVPS.php` | POST | `AjaxController@buyVPS` | Legacy - Mua VPS |
+| `/Ajaxs/BuySourceCode.php` | POST | `AjaxController@buySourceCode` | Legacy - Mua source code |
+| `/Ajaxs/UpdateDns.php` | POST | `DomainController@updateDns` | Legacy - Cập nhật DNS |
+| `/Ajaxs/Cards.php` | POST | `PaymentController@processCard` | Legacy - Xử lý thẻ cào |
 
 #### **Webhook & API:**
 | Route | Method | Controller | Mô Tả |
