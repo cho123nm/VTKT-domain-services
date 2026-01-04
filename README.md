@@ -338,6 +338,8 @@ Response → Browser
 | `/domain/checkout` | GET | `DomainController@checkout` | Checkout domain |
 | `/domain/manage` | GET | `DomainController@manage` | Quản lý domain |
 | `/domain/manage-dns` | GET | `DomainController@manageDns` | Quản lý DNS |
+| `/ajax/buy-domain` | POST | `DomainController@buy` | Mua domain (AJAX) |
+| `/ajax/update-dns` | POST | `DomainController@updateDns` | Cập nhật DNS (AJAX) |
 
 #### **Checkout (Thanh Toán):**
 | Route | Method | Controller | Mô Tả |
@@ -356,6 +358,7 @@ Response → Browser
 |-------|--------|------------|-------|
 | `/recharge` | GET | `PaymentController@recharge` | Trang nạp tiền |
 | `/recharge/process` | POST | `PaymentController@processRecharge` | Xử lý nạp tiền |
+| `/ajax/cards` | POST | `PaymentController@processCard` | Xử lý thẻ cào (AJAX) |
 | `/callback` | POST | `PaymentController@callback` | Callback từ CardVIP |
 
 #### **AJAX Routes (API):**
