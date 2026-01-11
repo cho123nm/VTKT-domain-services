@@ -39,5 +39,21 @@ class Handler extends ExceptionHandler
             // Có thể thêm logic để gửi exception đến Sentry, Bugsnag, etc.
         });
     }
+
+    /**
+     * Đăng ký error view paths
+     * Override để xử lý trường hợp đường dẫn rỗng
+     * 
+     * @return void
+     */
+    protected function registerErrorViewPaths(): void
+    {
+        try {
+            parent::registerErrorViewPaths();
+        } catch (\Exception $e) {
+            // Bỏ qua lỗi nếu có đường dẫn rỗng
+            // Error views sẽ không được đăng ký nhưng app vẫn chạy được
+        }
+    }
 }
 
