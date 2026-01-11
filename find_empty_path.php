@@ -3,15 +3,27 @@
  * Script để tìm đường dẫn rỗng gây ra DirectoryNotFoundException
  */
 
-require __DIR__ . '/vendor/autoload.php';
+$basePath = __DIR__;
 
-$app = require_once __DIR__ . '/bootstrap/app.php';
+// Kiểm tra xem có phải đang chạy trong container không
+if (!file_exists($basePath . '/config/view.php')) {
+    // Có thể đang chạy trong container với đường dẫn khác
+    $basePath = '/var/www/html';
+    if (!file_exists($basePath . '/config/view.php')) {
+        die("Cannot find config/view.php. Base path: " . __DIR__ . "\n");
+    }
+}
 
-echo "=== CHECKING PATHS ===\n\n";
+require $basePath . '/vendor/autoload.php';
+
+$app = require_once $basePath . '/bootstrap/app.php';
+
+echo "=== CHECKING PATHS ===\n";
+echo "Base path: $basePath\n\n";
 
 // Check view paths
 try {
-    $viewConfig = require __DIR__ . '/config/view.php';
+    $viewConfig = require $basePath . '/config/view.php';
     echo "View paths:\n";
     foreach ($viewConfig['paths'] as $i => $path) {
         $resolved = is_callable($path) ? $path() : $path;
@@ -45,7 +57,7 @@ $configFiles = [
 ];
 
 foreach ($configFiles as $file) {
-    $filePath = __DIR__ . '/config/' . $file;
+    $filePath = $basePath . '/config/' . $file;
     if (!file_exists($filePath)) {
         continue;
     }
