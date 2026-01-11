@@ -77,5 +77,40 @@ class Handler extends ExceptionHandler
             return null;
         }
     }
+
+    /**
+     * Render exception content using Symfony.
+     * Override để xử lý khi APP_DEBUG là null
+     *
+     * @param  \Throwable  $e
+     * @return string
+     */
+    protected function renderExceptionContent(Throwable $e)
+    {
+        try {
+            $debug = $this->container->make('config')->get('app.debug', false);
+            // Đảm bảo $debug luôn là boolean
+            $debug = (bool) $debug;
+            return $this->renderExceptionWithSymfony($e, $debug);
+        } catch (\Exception $exception) {
+            // Nếu có lỗi, dùng debug = false
+            return $this->renderExceptionWithSymfony($e, false);
+        }
+    }
+
+    /**
+     * Render exception with Symfony ErrorRenderer.
+     * Override để đảm bảo $debug luôn là boolean
+     *
+     * @param  \Throwable  $e
+     * @param  bool  $debug
+     * @return string
+     */
+    protected function renderExceptionWithSymfony(Throwable $e, $debug)
+    {
+        // Đảm bảo $debug luôn là boolean, không phải null
+        $debug = (bool) $debug;
+        return parent::renderExceptionWithSymfony($e, $debug);
+    }
 }
 
