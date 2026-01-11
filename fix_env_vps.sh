@@ -1,7 +1,8 @@
 #!/bin/bash
 # Script sửa file .env trên VPS
 
-cd /var/www/domain || exit 1
+# Trong container, đường dẫn là /var/www/html
+cd /var/www/html || exit 1
 
 # Sửa các giá trị
 sed -i 's|^APP_ENV=.*|APP_ENV=production|' .env
