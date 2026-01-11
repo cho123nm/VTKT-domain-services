@@ -5,6 +5,7 @@ namespace App\Exceptions;
 // Import ExceptionHandler base class và Throwable interface
 use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler; // Base class xử lý exception của Laravel
 use Throwable; // Interface cho tất cả các exception và error trong PHP
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 /**
  * Class Handler
@@ -53,6 +54,27 @@ class Handler extends ExceptionHandler
         } catch (\Exception $e) {
             // Bỏ qua lỗi nếu có đường dẫn rỗng
             // Error views sẽ không được đăng ký nhưng app vẫn chạy được
+        }
+    }
+
+    /**
+     * Get the view used to render HTTP exceptions.
+     * Override để xử lý khi View service chưa được đăng ký
+     *
+     * @param  \Symfony\Component\HttpKernel\Exception\HttpExceptionInterface  $e
+     * @return string|null
+     */
+    protected function getHttpExceptionView($e)
+    {
+        try {
+            // Kiểm tra xem View service đã được đăng ký chưa
+            if (!$this->container->bound('view')) {
+                return null;
+            }
+            return parent::getHttpExceptionView($e);
+        } catch (\Exception $exception) {
+            // Nếu có lỗi khi gọi view(), trả về null để dùng response mặc định
+            return null;
         }
     }
 }
