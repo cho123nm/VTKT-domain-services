@@ -18,6 +18,10 @@ yarn-error.log
 /.idea
 /.vscode
 
+# Cache files
+bootstrap/cache/*.php
+!bootstrap/cache/.gitignore
+
 # Documentation files
 Adminstators/docs/
 
