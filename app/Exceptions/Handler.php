@@ -1,30 +1,42 @@
 <?php
-
+// Khai báo namespace cho Exception Handler này - thuộc App\Exceptions
 namespace App\Exceptions;
 
-use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler;
-use Throwable;
+// Import ExceptionHandler base class và Throwable interface
+use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler; // Base class xử lý exception của Laravel
+use Throwable; // Interface cho tất cả các exception và error trong PHP
 
+/**
+ * Class Handler
+ * Exception Handler chính của ứng dụng
+ * Xử lý tất cả các exception và error trong ứng dụng
+ */
 class Handler extends ExceptionHandler
 {
     /**
-     * The list of the inputs that are never flashed to the session on validation exceptions.
+     * Danh sách các input không được flash vào session khi có validation exception
+     * Các trường này chứa thông tin nhạy cảm (mật khẩu) nên không nên lưu vào session
      *
      * @var array<int, string>
      */
     protected $dontFlash = [
-        'current_password',
-        'password',
-        'password_confirmation',
+        'current_password', // Mật khẩu hiện tại
+        'password', // Mật khẩu mới
+        'password_confirmation', // Xác nhận mật khẩu mới
     ];
 
     /**
-     * Register the exception handling callbacks for the application.
+     * Đăng ký các callback xử lý exception cho ứng dụng
+     * Có thể thêm logic để log hoặc xử lý các exception cụ thể ở đây
+     * 
+     * @return void
      */
     public function register(): void
     {
+        // Đăng ký callback để report exception (ví dụ: gửi đến logging service)
         $this->reportable(function (Throwable $e) {
-            //
+            // Hiện tại không có logic xử lý đặc biệt
+            // Có thể thêm logic để gửi exception đến Sentry, Bugsnag, etc.
         });
     }
 }

@@ -1,56 +1,65 @@
 <?php
+// Import các class cần thiết
+use Illuminate\Contracts\Http\Kernel; // Interface HTTP Kernel
+use Illuminate\Http\Request; // Class xử lý HTTP request
 
-use Illuminate\Contracts\Http\Kernel;
-use Illuminate\Http\Request;
-
+// Định nghĩa hằng số LARAVEL_START để đo thời gian khởi động ứng dụng
 define('LARAVEL_START', microtime(true));
 
 /*
 |--------------------------------------------------------------------------
-| Check If The Application Is Under Maintenance
+| Kiểm Tra Ứng Dụng Có Đang Bảo Trì Không
 |--------------------------------------------------------------------------
 |
-| If the application is in maintenance / demo mode via the "down" command
-| we will load this file so that any pre-rendered content can be shown
-| instead of starting the framework, which could cause an exception.
+| Nếu ứng dụng đang ở chế độ bảo trì / demo mode thông qua lệnh "down"
+| chúng ta sẽ load file này để hiển thị nội dung đã được render sẵn
+| thay vì khởi động framework, điều này có thể gây ra exception.
 |
 */
 
+// Kiểm tra file maintenance.php có tồn tại không
 if (file_exists($maintenance = __DIR__.'/../storage/framework/maintenance.php')) {
-    require $maintenance;
+    require $maintenance; // Load file maintenance để hiển thị trang bảo trì
 }
 
 /*
 |--------------------------------------------------------------------------
-| Register The Auto Loader
+| Đăng Ký Auto Loader
 |--------------------------------------------------------------------------
 |
-| Composer provides a convenient, automatically generated class loader for
-| this application. We just need to utilize it! We'll simply require it
-| into the script here so we don't need to manually load our classes.
+| Composer cung cấp một class loader tiện lợi, tự động được tạo cho
+| ứng dụng này. Chúng ta chỉ cần sử dụng nó! Chúng ta sẽ require nó
+| vào script ở đây để không cần phải load các class thủ công.
 |
 */
 
+// Load Composer autoloader để tự động load các class
 require __DIR__.'/../vendor/autoload.php';
 
 /*
 |--------------------------------------------------------------------------
-| Run The Application
+| Chạy Ứng Dụng
 |--------------------------------------------------------------------------
 |
-| Once we have the application, we can handle the incoming request using
-| the application's HTTP kernel. Then, we will send the response back
-| to this client's browser, allowing them to enjoy our application.
+| Một khi chúng ta đã có application instance, chúng ta có thể xử lý
+| request đến bằng cách sử dụng HTTP kernel của ứng dụng. Sau đó,
+| chúng ta sẽ gửi response trở lại trình duyệt của client, cho phép
+| họ sử dụng ứng dụng của chúng ta.
 |
 */
 
+// Load application instance từ bootstrap/app.php
 $app = require_once __DIR__.'/../bootstrap/app.php';
 
+// Tạo HTTP Kernel instance từ application container
 $kernel = $app->make(Kernel::class);
 
+// Xử lý request và gửi response
+// Request::capture() tự động capture request từ PHP superglobals ($_GET, $_POST, etc.)
 $response = $kernel->handle(
-    $request = Request::capture()
-)->send();
+    $request = Request::capture() // Capture request hiện tại
+)->send(); // Gửi response về client
 
+// Gọi phương thức terminate để cleanup sau khi gửi response
 $kernel->terminate($request, $response);
 

@@ -1,41 +1,66 @@
 <?php
-
+// Khai báo namespace cho Controller này - thuộc App\Http\Controllers
 namespace App\Http\Controllers;
 
-use App\Models\Domain;
-use App\Models\History;
-use App\Models\User;
-use App\Services\DomainService;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Session;
-use Illuminate\Support\Facades\DB;
+// Import các Model và Service cần thiết
+use App\Models\Domain; // Model quản lý thông tin domain
+use App\Models\History; // Model lưu lịch sử mua domain
+use App\Models\User; // Model quản lý người dùng
+use App\Services\DomainService; // Service xử lý logic domain (WHOIS, etc.)
+use Illuminate\Http\Request; // Class xử lý HTTP request
+use Illuminate\Support\Facades\Session; // Facade để làm việc với session
+use Illuminate\Support\Facades\DB; // Facade để thao tác database
 
+/**
+ * Class DomainController
+ * Controller xử lý các thao tác liên quan đến domain: checkout, mua, quản lý DNS
+ */
 class DomainController extends Controller
 {
+    // Thuộc tính lưu trữ instance của DomainService
     protected $domainService;
 
+    /**
+     * Hàm khởi tạo (Constructor)
+     * Dependency Injection: Laravel tự động inject DomainService vào đây
+     * 
+     * @param DomainService $domainService - Service để xử lý logic domain
+     */
     public function __construct(DomainService $domainService)
     {
+        // Gán DomainService vào thuộc tính của class
         $this->domainService = $domainService;
     }
 
     /**
-     * Generate unique MGD (transaction ID)
+     * Tạo mã giao dịch (MGD) duy nhất
+     * MGD = Mã Giao Dịch - dùng để theo dõi các đơn hàng
+     * 
+     * @return string - Mã giao dịch dạng chuỗi
      */
     private function generateMGD()
     {
+        // Vòng lặp do-while: tạo mã cho đến khi mã không trùng với mã nào trong database
         do {
+            // Tạo mã = timestamp hiện tại + số ngẫu nhiên từ 1000-9999
             $mgd = time() . rand(1000, 9999);
         } while (
-            \App\Models\History::where('mgd', $mgd)->exists() ||
-            \App\Models\HostingHistory::where('mgd', $mgd)->exists() ||
-            \App\Models\VPSHistory::where('mgd', $mgd)->exists() ||
-            \App\Models\SourceCodeHistory::where('mgd', $mgd)->exists()
+            // Kiểm tra mã có trùng trong các bảng lịch sử không
+            \App\Models\History::where('mgd', $mgd)->exists() || // Kiểm tra trong bảng domain history
+            \App\Models\HostingHistory::where('mgd', $mgd)->exists() || // Kiểm tra trong bảng hosting history
+            \App\Models\VPSHistory::where('mgd', $mgd)->exists() || // Kiểm tra trong bảng VPS history
+            \App\Models\SourceCodeHistory::where('mgd', $mgd)->exists() // Kiểm tra trong bảng source code history
         );
+        // Ép kiểu về string và trả về
         return (string)$mgd;
     }
+    
     /**
-     * Trang checkout domain
+     * Trang checkout domain (legacy method)
+     * Hiển thị trang thanh toán domain
+     * 
+     * @param Request $request - HTTP request chứa domain từ query
+     * @return \Illuminate\View\View|\Illuminate\Http\RedirectResponse
      */
     public function checkout(Request $request)
     {

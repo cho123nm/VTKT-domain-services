@@ -4,9 +4,9 @@
 /public/storage
 /storage/*.key
 /vendor
-.env
 .env.backup
 .env.production
+!.env
 .phpunit.result.cache
 Homestead.json
 Homestead.yaml
@@ -35,6 +35,16 @@ storage/logs/*.log
 public/Adminstators
 public/assets
 
-# Documentation for learning (not for public)
-HUONG_DAN_CODE.md
+# IDE Helper files (đã xóa)
+# _ide_helper.php
+
+# Composer executable (đã xóa)
+# composer.phar
+
+# Setup scripts (đã xóa)
+# setup.bat
+# setup.sh
+
+# Public symlinks
+public/images
 

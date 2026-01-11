@@ -1,218 +1,286 @@
 <?php
-
+// Khai báo namespace cho Controller này - thuộc App\Http\Controllers
 namespace App\Http\Controllers;
 
-use App\Models\Domain;
-use App\Models\History;
-use App\Models\Hosting;
-use App\Models\HostingHistory;
-use App\Models\VPS;
-use App\Models\VPSHistory;
-use App\Models\SourceCode;
-use App\Models\SourceCodeHistory;
-use App\Models\User;
-use App\Services\TelegramService;
-use App\Mail\OrderConfirmationMail;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Facades\Log;
+// Import các Model cần thiết để xử lý dữ liệu
+use App\Models\Domain; // Model quản lý thông tin domain
+use App\Models\History; // Model lưu lịch sử mua domain
+use App\Models\Hosting; // Model quản lý gói hosting
+use App\Models\HostingHistory; // Model lưu lịch sử mua hosting
+use App\Models\VPS; // Model quản lý gói VPS
+use App\Models\VPSHistory; // Model lưu lịch sử mua VPS
+use App\Models\SourceCode; // Model quản lý source code
+use App\Models\SourceCodeHistory; // Model lưu lịch sử mua source code
+use App\Models\User; // Model quản lý người dùng
+use App\Services\TelegramService; // Service gửi thông báo Telegram
+use App\Mail\OrderConfirmationMail; // Class gửi email xác nhận đơn hàng
+use Illuminate\Http\Request; // Class xử lý HTTP request
+use Illuminate\Support\Facades\DB; // Facade để thao tác database
+use Illuminate\Support\Facades\Mail; // Facade để gửi email
+use Illuminate\Support\Facades\Log; // Facade để ghi log
 
+/**
+ * Class CheckoutController
+ * Controller xử lý các thao tác thanh toán và checkout cho domain, hosting, VPS, source code
+ */
 class CheckoutController extends Controller
 {
+    // Thuộc tính lưu trữ instance của TelegramService để gửi thông báo
     protected $telegramService;
 
+    /**
+     * Hàm khởi tạo (Constructor)
+     * Dependency Injection: Laravel tự động inject TelegramService vào đây
+     * 
+     * @param TelegramService $telegramService - Service để gửi thông báo Telegram
+     */
     public function __construct(TelegramService $telegramService)
     {
+        // Gán TelegramService vào thuộc tính của class
         $this->telegramService = $telegramService;
     }
 
     /**
-     * Generate unique MGD (transaction ID)
+     * Tạo mã giao dịch (MGD) duy nhất
+     * MGD = Mã Giao Dịch - dùng để theo dõi các đơn hàng
+     * 
+     * @return string - Mã giao dịch dạng chuỗi
      */
     private function generateMGD()
     {
+        // Vòng lặp do-while: tạo mã cho đến khi mã không trùng với mã nào trong database
         do {
+            // Tạo mã = timestamp hiện tại + số ngẫu nhiên từ 1000-9999
+            // Ví dụ: 1703123456 + 5678 = "17031234565678"
             $mgd = time() . rand(1000, 9999);
         } while (
-            History::where('mgd', $mgd)->exists() ||
-            HostingHistory::where('mgd', $mgd)->exists() ||
-            VPSHistory::where('mgd', $mgd)->exists() ||
-            SourceCodeHistory::where('mgd', $mgd)->exists()
+            // Kiểm tra mã có trùng trong các bảng lịch sử không
+            History::where('mgd', $mgd)->exists() || // Kiểm tra trong bảng domain history
+            HostingHistory::where('mgd', $mgd)->exists() || // Kiểm tra trong bảng hosting history
+            VPSHistory::where('mgd', $mgd)->exists() || // Kiểm tra trong bảng VPS history
+            SourceCodeHistory::where('mgd', $mgd)->exists() // Kiểm tra trong bảng source code history
         );
+        // Ép kiểu về string và trả về
         return (string)$mgd;
     }
+    
     /**
-     * Show domain checkout page
+     * Hiển thị trang checkout cho domain
+     * 
+     * @param Request $request - HTTP request chứa thông tin domain từ URL query
+     * @return \Illuminate\Http\RedirectResponse|\Illuminate\View\View
      */
     public function domain(Request $request)
     {
+        // Lấy tên domain từ query string (?domain=example.com)
         $domainName = $request->query('domain');
         
+        // Nếu không có domain trong URL, chuyển về trang chủ
         if (empty($domainName)) {
             return redirect()->route('home');
         }
 
-        // Extract domain extension
+        // Tách tên domain thành các phần bằng dấu chấm
+        // Ví dụ: "example.com" -> ["example", "com"]
         $parts = explode('.', $domainName);
+        
+        // Nếu không đủ 2 phần (tên + đuôi), chuyển về trang chủ
         if (count($parts) < 2) {
             return redirect()->route('home');
         }
         
+        // Tạo đuôi domain (ví dụ: ".com")
         $extension = '.' . $parts[1];
         
-        // Find domain type
+        // Tìm thông tin loại domain trong database theo đuôi
         $domain = Domain::findByDuoi($extension);
         
+        // Nếu không tìm thấy loại domain, chuyển về trang chủ
         if (!$domain) {
             return redirect()->route('home');
         }
 
+        // Trả về view checkout domain với dữ liệu cần thiết
         return view('pages.checkout.domain', [
-            'domainName' => $domainName,
-            'domain' => $domain,
-            'price' => $domain->price
+            'domainName' => $domainName, // Tên domain đầy đủ
+            'domain' => $domain, // Thông tin loại domain từ database
+            'price' => $domain->price // Giá domain
         ]);
     }
 
     /**
-     * Show hosting checkout page
+     * Hiển thị trang checkout cho hosting
+     * 
+     * @param Request $request - HTTP request chứa ID hosting từ URL query
+     * @return \Illuminate\Http\RedirectResponse|\Illuminate\View\View
      */
     public function hosting(Request $request)
     {
-        // Check if user is logged in
+        // Kiểm tra người dùng đã đăng nhập chưa (kiểm tra session 'users')
         if (!session()->has('users')) {
+            // Nếu chưa đăng nhập, chuyển đến trang đăng nhập
             return redirect()->route('login');
         }
 
+        // Lấy ID hosting từ query string (?id=1), mặc định là 0 nếu không có
         $id = $request->query('id', 0);
         
+        // Nếu ID = 0 hoặc không hợp lệ, chuyển về trang danh sách hosting
         if ($id == 0) {
             return redirect()->route('hosting.index');
         }
 
+        // Tìm gói hosting trong database theo ID
         $hosting = Hosting::find($id);
         
+        // Nếu không tìm thấy gói hosting, chuyển về trang danh sách
         if (!$hosting) {
             return redirect()->route('hosting.index');
         }
 
+        // Trả về view checkout hosting với thông tin gói hosting
         return view('pages.checkout.hosting', [
             'hosting' => $hosting
         ]);
     }
 
     /**
-     * Show VPS checkout page
+     * Hiển thị trang checkout cho VPS
+     * 
+     * @param Request $request - HTTP request chứa ID VPS từ URL query
+     * @return \Illuminate\Http\RedirectResponse|\Illuminate\View\View
      */
     public function vps(Request $request)
     {
-        // Check if user is logged in
+        // Kiểm tra người dùng đã đăng nhập chưa
         if (!session()->has('users')) {
             return redirect()->route('login');
         }
 
+        // Lấy ID VPS từ query string, mặc định là 0
         $id = $request->query('id', 0);
         
+        // Nếu ID không hợp lệ, chuyển về trang danh sách VPS
         if ($id == 0) {
             return redirect()->route('vps.index');
         }
 
+        // Tìm gói VPS trong database theo ID
         $vps = VPS::find($id);
         
+        // Nếu không tìm thấy, chuyển về trang danh sách
         if (!$vps) {
             return redirect()->route('vps.index');
         }
 
+        // Trả về view checkout VPS với thông tin gói VPS
         return view('pages.checkout.vps', [
             'vps' => $vps
         ]);
     }
 
     /**
-     * Show source code checkout page
+     * Hiển thị trang checkout cho source code
+     * 
+     * @param Request $request - HTTP request chứa ID source code từ URL query
+     * @return \Illuminate\Http\RedirectResponse|\Illuminate\View\View
      */
     public function sourcecode(Request $request)
     {
-        // Check if user is logged in
+        // Kiểm tra người dùng đã đăng nhập chưa
         if (!session()->has('users')) {
             return redirect()->route('login');
         }
 
+        // Lấy ID source code từ query string, mặc định là 0
         $id = $request->query('id', 0);
         
+        // Nếu ID không hợp lệ, chuyển về trang danh sách source code
         if ($id == 0) {
             return redirect()->route('sourcecode.index');
         }
 
+        // Tìm source code trong database theo ID
         $sourceCode = SourceCode::find($id);
         
+        // Nếu không tìm thấy, chuyển về trang danh sách
         if (!$sourceCode) {
             return redirect()->route('sourcecode.index');
         }
 
+        // Trả về view checkout source code với thông tin sản phẩm
         return view('pages.checkout.sourcecode', [
             'sourceCode' => $sourceCode
         ]);
     }
 
     /**
-     * Process domain purchase
+     * Xử lý mua domain (process domain purchase)
+     * Hàm này được gọi từ AJAX request khi người dùng submit form mua domain
+     * 
+     * @param Request $request - HTTP request chứa thông tin domain, NS1, NS2, HSD
+     * @return \Illuminate\Http\JsonResponse - JSON response cho AJAX
      */
     public function processDomain(Request $request)
     {
-        // Đảm bảo session được khởi động
+        // Kiểm tra xem request có session không (quan trọng cho AJAX)
         if (!$request->hasSession()) {
+            // Ghi log cảnh báo nếu không có session
             Log::warning('ProcessDomain - No session available', [
-                'url' => $request->fullUrl(),
-                'cookie_header' => $request->header('Cookie')
+                'url' => $request->fullUrl(), // URL đầy đủ của request
+                'cookie_header' => $request->header('Cookie') // Header Cookie từ request
             ]);
             
+            // Trả về JSON response báo lỗi cho AJAX
             return response()->json([
                 'success' => false,
                 'message' => 'Phiên làm việc đã hết hạn, vui lòng tải lại trang và đăng nhập lại!'
             ]);
         }
         
-        // Log ngay từ đầu để đảm bảo request đến được controller
+        // Ghi log để debug - đảm bảo request đã đến được controller
         Log::info('ProcessDomain - Request received', [
-            'method' => $request->method(),
-            'path' => $request->path(),
-            'url' => $request->fullUrl(),
-            'ip' => $request->ip(),
-            'has_cookie' => $request->hasHeader('Cookie'),
-            'cookie_header' => $request->header('Cookie') ? 'present' : 'missing',
-            'has_session' => $request->hasSession(),
-            'session_id' => $request->session()->getId()
+            'method' => $request->method(), // HTTP method (GET, POST, etc.)
+            'path' => $request->path(), // Đường dẫn URL
+            'url' => $request->fullUrl(), // URL đầy đủ
+            'ip' => $request->ip(), // IP của người dùng
+            'has_cookie' => $request->hasHeader('Cookie'), // Có Cookie header không
+            'cookie_header' => $request->header('Cookie') ? 'present' : 'missing', // Cookie có hay không
+            'has_session' => $request->hasSession(), // Có session không
+            'session_id' => $request->session()->getId() // ID của session
         ]);
         
-        // Đảm bảo session được load lại từ storage
-        // Không cần reflash, session đã được middleware xử lý
-        
-        // Debug session - kiểm tra nhiều cách
+        // Lấy thông tin session để kiểm tra đăng nhập
+        // Lấy giá trị 'users' từ session (username của người dùng)
         $sessionUsers = $request->session()->get('users');
+        // Kiểm tra session có key 'users' không
         $hasUsers = $request->session()->has('users');
+        // Lấy tất cả dữ liệu trong session để debug
         $allSession = $request->session()->all();
+        // Lấy ID của session
         $sessionId = $request->session()->getId();
         
+        // Ghi log thông tin session để debug
         Log::info('ProcessDomain - Session check', [
-            'has_users' => $hasUsers,
-            'users_value' => $sessionUsers,
-            'session_id' => $sessionId,
-            'session_keys' => array_keys($allSession),
-            'cookie_header' => $request->header('Cookie'),
-            'user_agent' => $request->header('User-Agent')
+            'has_users' => $hasUsers, // Có key 'users' trong session không
+            'users_value' => $sessionUsers, // Giá trị của 'users' (username)
+            'session_id' => $sessionId, // ID session
+            'session_keys' => array_keys($allSession), // Tất cả keys trong session
+            'cookie_header' => $request->header('Cookie'), // Cookie header
+            'user_agent' => $request->header('User-Agent') // User agent của browser
         ]);
         
-        // Validate user is logged in - kiểm tra nhiều cách
+        // Kiểm tra người dùng đã đăng nhập chưa (kiểm tra cả giá trị và sự tồn tại)
         if (empty($sessionUsers) && !$hasUsers) {
+            // Ghi log cảnh báo nếu chưa đăng nhập
             Log::warning('ProcessDomain - User not logged in', [
                 'session_id' => $sessionId,
-                'all_session_keys' => array_keys($allSession),
+                'all_session_keys' => array_keys($allSession), // Tất cả keys trong session
                 'cookie_header' => $request->header('Cookie'),
-                'session_driver' => config('session.driver')
+                'session_driver' => config('session.driver') // Driver session đang dùng (file, database, etc.)
             ]);
             
+            // Trả về JSON response báo lỗi và script redirect đến trang đăng nhập
             return response()->json([
                 'success' => false,
                 'message' => 'Vui Lòng Đăng Nhập Để Thực Hiện!',
@@ -225,24 +293,29 @@ class CheckoutController extends Controller
             ]);
         }
 
-        // Validate input
+        // Validate dữ liệu đầu vào từ form
+        // Kiểm tra các trường bắt buộc: domain, ns1, ns2, hsd
         $request->validate([
-            'domain' => 'required|string',
-            'ns1' => 'required|string',
-            'ns2' => 'required|string',
-            'hsd' => 'required|string'
+            'domain' => 'required|string', // Tên domain bắt buộc, kiểu string
+            'ns1' => 'required|string', // Nameserver 1 bắt buộc
+            'ns2' => 'required|string', // Nameserver 2 bắt buộc
+            'hsd' => 'required|string' // Hạn sử dụng bắt buộc
         ]);
 
-        $domain = $request->input('domain');
-        $ns1 = $request->input('ns1');
-        $ns2 = $request->input('ns2');
-        $hsd = $request->input('hsd');
+        // Lấy dữ liệu từ request sau khi validate
+        $domain = $request->input('domain'); // Tên domain
+        $ns1 = $request->input('ns1'); // Nameserver 1
+        $ns2 = $request->input('ns2'); // Nameserver 2
+        $hsd = $request->input('hsd'); // Hạn sử dụng
         
-        // Generate unique transaction ID
+        // Tạo mã giao dịch duy nhất
         $mgd = $this->generateMGD();
 
-        // Extract domain extension
+        // Tách tên domain để lấy đuôi (extension)
+        // Ví dụ: "example.com" -> ["example", "com"]
         $parts = explode('.', $domain);
+        
+        // Kiểm tra domain có đủ phần không (ít nhất phải có tên và đuôi)
         if (count($parts) < 2) {
             return response()->json([
                 'success' => false,
@@ -250,11 +323,13 @@ class CheckoutController extends Controller
             ]);
         }
         
+        // Tạo đuôi domain (ví dụ: ".com")
         $extension = '.' . $parts[1];
         
-        // Find domain type
+        // Tìm thông tin loại domain trong database theo đuôi
         $domainType = Domain::findByDuoi($extension);
         
+        // Nếu không tìm thấy loại domain, trả về lỗi
         if (!$domainType) {
             return response()->json([
                 'success' => false,
@@ -262,18 +337,21 @@ class CheckoutController extends Controller
             ]);
         }
 
+        // Lấy giá domain từ loại domain đã tìm được
         $price = $domainType->price;
 
-        // Get user - sử dụng biến đã lấy trước đó
+        // Tìm thông tin người dùng từ database theo username trong session
         $user = User::findByUsername($sessionUsers);
         
-        // Đảm bảo session vẫn còn valid
+        // Nếu không tìm thấy user nhưng session vẫn có 'users', thử lấy lại session
         if (!$user && $sessionUsers) {
-            // Thử lại với session mới
+            // Lấy lại username từ session (có thể session đã được refresh)
             $sessionUsers = $request->session()->get('users');
+            // Tìm lại user
             $user = User::findByUsername($sessionUsers);
         }
         
+        // Nếu vẫn không tìm thấy user, trả về lỗi
         if (!$user) {
             return response()->json([
                 'success' => false,
@@ -281,9 +359,10 @@ class CheckoutController extends Controller
             ]);
         }
 
-        // Check if domain already exists
+        // Kiểm tra domain đã được mua chưa (tránh trùng lặp)
         $existingOrder = History::where('domain', $domain)->first();
         
+        // Nếu đã có đơn hàng với domain này, trả về thông báo
         if ($existingOrder) {
             return response()->json([
                 'success' => false,
@@ -291,7 +370,7 @@ class CheckoutController extends Controller
             ]);
         }
 
-        // Validate user has sufficient balance
+        // Kiểm tra số dư tài khoản có đủ để thanh toán không
         if ($user->tien < $price) {
             return response()->json([
                 'success' => false,
@@ -299,72 +378,81 @@ class CheckoutController extends Controller
             ]);
         }
 
+        // Bắt đầu transaction database để đảm bảo tính nhất quán dữ liệu
         try {
+            // Bắt đầu transaction - nếu có lỗi sẽ rollback toàn bộ
             DB::beginTransaction();
 
-            // Deduct balance
+            // Trừ số dư tài khoản người dùng
+            // incrementBalance(-price) = giảm số dư đi một lượng = price
             $user->incrementBalance(-1 * (int)$price);
 
-            // Create order
-            $history = new History();
-            $history->uid = $user->id;
-            $history->domain = $domain;
-            $history->ns1 = $ns1;
-            $history->ns2 = $ns2;
-            $history->hsd = $hsd;
-            $history->status = 0; // Pending
-            $history->mgd = (string)$mgd;
-            $history->time = date('Y-m-d H:i:s');
-            $history->timedns = '0';
-            $history->save();
+            // Tạo đơn hàng mới trong bảng History
+            $history = new History(); // Tạo instance mới của Model History
+            $history->uid = $user->id; // ID người dùng
+            $history->domain = $domain; // Tên domain
+            $history->ns1 = $ns1; // Nameserver 1
+            $history->ns2 = $ns2; // Nameserver 2
+            $history->hsd = $hsd; // Hạn sử dụng
+            $history->status = 0; // Trạng thái: 0 = Chờ xử lý (Pending)
+            $history->mgd = (string)$mgd; // Mã giao dịch
+            $history->time = date('Y-m-d H:i:s'); // Thời gian tạo đơn hàng
+            $history->timedns = '0'; // Thời gian DNS (mặc định 0)
+            $history->save(); // Lưu vào database
 
+            // Commit transaction - xác nhận tất cả thay đổi
             DB::commit();
 
-            // Send Telegram notification to admin
+            // Gửi thông báo Telegram cho admin về đơn hàng mới
             $this->telegramService->notifyNewOrder('domain', [
-                'username' => $user->taikhoan,
-                'mgd' => (string)$mgd,
-                'domain' => $domain,
-                'ns1' => $ns1,
-                'ns2' => $ns2,
-                'time' => date('d/m/Y - H:i:s')
+                'username' => $user->taikhoan, // Username người dùng
+                'mgd' => (string)$mgd, // Mã giao dịch
+                'domain' => $domain, // Tên domain
+                'ns1' => $ns1, // Nameserver 1
+                'ns2' => $ns2, // Nameserver 2
+                'time' => date('d/m/Y - H:i:s') // Thời gian định dạng Việt Nam
             ]);
 
-            // Send email confirmation to user
+            // Gửi email xác nhận đơn hàng cho người dùng (nếu có email)
             if ($user->email) {
                 try {
+                    // Ghi log khi bắt đầu gửi email
                     Log::info('Sending domain order confirmation email', [
                         'user_email' => $user->email,
                         'mgd' => $mgd,
                         'domain' => $domain
                     ]);
                     
+                    // Gửi email xác nhận đơn hàng
                     Mail::to($user->email)->send(new OrderConfirmationMail(
-                        $history,
-                        'domain',
-                        $user,
+                        $history, // Đối tượng History chứa thông tin đơn hàng
+                        'domain', // Loại đơn hàng: domain
+                        $user, // Đối tượng User
                         [
-                            'price' => $price,
-                            'domain' => $domain,
-                            'ns1' => $ns1,
-                            'ns2' => $ns2,
+                            'price' => $price, // Giá domain
+                            'domain' => $domain, // Tên domain
+                            'ns1' => $ns1, // Nameserver 1
+                            'ns2' => $ns2, // Nameserver 2
                         ]
                     ));
                     
+                    // Ghi log khi gửi email thành công
                     Log::info('Domain order confirmation email sent successfully', [
                         'user_email' => $user->email,
                         'mgd' => $mgd
                     ]);
                 } catch (\Exception $e) {
+                    // Nếu có lỗi khi gửi email, chỉ ghi log, không báo lỗi cho user
                     Log::error('Domain order email error', [
                         'user_email' => $user->email,
                         'mgd' => $mgd,
-                        'error' => $e->getMessage(),
-                        'trace' => $e->getTraceAsString()
+                        'error' => $e->getMessage(), // Thông báo lỗi
+                        'trace' => $e->getTraceAsString() // Stack trace để debug
                     ]);
-                    // Không báo lỗi cho user, chỉ log
+                    // Không báo lỗi cho user, chỉ log - vì đơn hàng đã được tạo thành công
                 }
             } else {
+                // Nếu user không có email, ghi log cảnh báo
                 Log::warning('Domain order - User has no email', [
                     'user_id' => $user->id,
                     'username' => $user->taikhoan,
@@ -372,14 +460,17 @@ class CheckoutController extends Controller
                 ]);
             }
 
+            // Trả về JSON response thành công cho AJAX
             return response()->json([
                 'success' => true,
                 'message' => 'Mua Tên Miền Thành Công, Chờ Xử Lí!'
             ]);
 
         } catch (\Exception $e) {
+            // Nếu có lỗi bất kỳ, rollback transaction (hoàn tác tất cả thay đổi)
             DB::rollBack();
             
+            // Trả về JSON response lỗi cho AJAX
             return response()->json([
                 'success' => false,
                 'message' => 'Không Thể Mua Vào Lúc Này!'
@@ -388,11 +479,15 @@ class CheckoutController extends Controller
     }
 
     /**
-     * Process hosting purchase
+     * Xử lý mua hosting (process hosting purchase)
+     * Hàm này được gọi từ AJAX request khi người dùng submit form mua hosting
+     * 
+     * @param Request $request - HTTP request chứa hosting_id và period (month/year)
+     * @return \Illuminate\Http\JsonResponse - JSON response cho AJAX
      */
     public function processHosting(Request $request)
     {
-        // Validate user is logged in
+        // Kiểm tra người dùng đã đăng nhập chưa
         if (!session()->has('users')) {
             return response()->json([
                 'success' => false,
@@ -400,21 +495,23 @@ class CheckoutController extends Controller
             ]);
         }
 
-        // Validate input
+        // Validate dữ liệu đầu vào từ form
         $request->validate([
-            'hosting_id' => 'required|integer',
-            'period' => 'required|in:month,year'
+            'hosting_id' => 'required|integer', // ID hosting bắt buộc, kiểu integer
+            'period' => 'required|in:month,year' // Thời hạn bắt buộc, chỉ nhận 'month' hoặc 'year'
         ]);
 
-        $hostingId = $request->input('hosting_id');
-        $period = $request->input('period');
+        // Lấy dữ liệu từ request sau khi validate
+        $hostingId = $request->input('hosting_id'); // ID gói hosting
+        $period = $request->input('period'); // Thời hạn: 'month' hoặc 'year'
         
-        // Generate unique transaction ID
+        // Tạo mã giao dịch duy nhất
         $mgd = $this->generateMGD();
 
-        // Find hosting package
+        // Tìm gói hosting trong database theo ID
         $hosting = Hosting::find($hostingId);
         
+        // Nếu không tìm thấy gói hosting, trả về lỗi
         if (!$hosting) {
             return response()->json([
                 'success' => false,
@@ -422,11 +519,13 @@ class CheckoutController extends Controller
             ]);
         }
 
+        // Xác định giá dựa trên thời hạn: tháng hoặc năm
         $price = $period === 'month' ? $hosting->price_month : $hosting->price_year;
 
-        // Get user
+        // Tìm thông tin người dùng từ session
         $user = User::findByUsername(session('users'));
         
+        // Nếu không tìm thấy user, trả về lỗi
         if (!$user) {
             return response()->json([
                 'success' => false,
@@ -434,7 +533,7 @@ class CheckoutController extends Controller
             ]);
         }
 
-        // Validate user has sufficient balance
+        // Kiểm tra số dư tài khoản có đủ để thanh toán không
         if ($user->tien < $price) {
             return response()->json([
                 'success' => false,
@@ -442,67 +541,74 @@ class CheckoutController extends Controller
             ]);
         }
 
+        // Bắt đầu transaction database
         try {
             DB::beginTransaction();
 
-            // Deduct balance
+            // Trừ số dư tài khoản người dùng
             $user->incrementBalance(-1 * (int)$price);
 
-            // Create order
-            $history = new HostingHistory();
-            $history->uid = $user->id;
-            $history->hosting_id = $hostingId;
-            $history->period = $period;
-            $history->mgd = (string)$mgd;
-            $history->status = 1; // Approved immediately
-            $history->time = date('Y-m-d H:i:s');
-            $history->save();
+            // Tạo đơn hàng hosting mới trong bảng HostingHistory
+            $history = new HostingHistory(); // Tạo instance mới của Model HostingHistory
+            $history->uid = $user->id; // ID người dùng
+            $history->hosting_id = $hostingId; // ID gói hosting
+            $history->period = $period; // Thời hạn: 'month' hoặc 'year'
+            $history->mgd = (string)$mgd; // Mã giao dịch
+            $history->status = 1; // Trạng thái: 1 = Đã duyệt ngay (Approved immediately)
+            $history->time = date('Y-m-d H:i:s'); // Thời gian tạo đơn hàng
+            $history->save(); // Lưu vào database
 
+            // Commit transaction - xác nhận tất cả thay đổi
             DB::commit();
 
-            // Send Telegram notification to admin
+            // Gửi thông báo Telegram cho admin về đơn hàng mới
             $this->telegramService->notifyNewOrder('hosting', [
-                'username' => $user->taikhoan,
-                'mgd' => (string)$mgd,
-                'package_name' => $hosting->name,
-                'period' => $period === 'month' ? '1' : '12',
-                'domain' => 'N/A',
-                'time' => date('d/m/Y - H:i:s')
+                'username' => $user->taikhoan, // Username người dùng
+                'mgd' => (string)$mgd, // Mã giao dịch
+                'package_name' => $hosting->name, // Tên gói hosting
+                'period' => $period === 'month' ? '1' : '12', // Thời hạn: 1 tháng hoặc 12 tháng
+                'domain' => 'N/A', // Domain chưa có (sẽ cung cấp sau)
+                'time' => date('d/m/Y - H:i:s') // Thời gian định dạng Việt Nam
             ]);
 
-            // Send email confirmation to user
+            // Gửi email xác nhận đơn hàng cho người dùng (nếu có email)
             if ($user->email) {
                 try {
+                    // Ghi log khi bắt đầu gửi email
                     Log::info('Sending hosting order confirmation email', [
                         'user_email' => $user->email,
                         'mgd' => $mgd,
                         'hosting_id' => $hostingId
                     ]);
                     
+                    // Gửi email xác nhận đơn hàng
                     Mail::to($user->email)->send(new OrderConfirmationMail(
-                        $history,
-                        'hosting',
-                        $user,
+                        $history, // Đối tượng HostingHistory chứa thông tin đơn hàng
+                        'hosting', // Loại đơn hàng: hosting
+                        $user, // Đối tượng User
                         [
-                            'price' => $price,
-                            'package_name' => $hosting->name,
-                            'period' => $period === 'month' ? '1' : '12',
+                            'price' => $price, // Giá hosting
+                            'package_name' => $hosting->name, // Tên gói hosting
+                            'period' => $period === 'month' ? '1' : '12', // Thời hạn
                         ]
                     ));
                     
+                    // Ghi log khi gửi email thành công
                     Log::info('Hosting order confirmation email sent successfully', [
                         'user_email' => $user->email,
                         'mgd' => $mgd
                     ]);
                 } catch (\Exception $e) {
+                    // Nếu có lỗi khi gửi email, chỉ ghi log
                     Log::error('Hosting order email error', [
                         'user_email' => $user->email,
                         'mgd' => $mgd,
-                        'error' => $e->getMessage(),
-                        'trace' => $e->getTraceAsString()
+                        'error' => $e->getMessage(), // Thông báo lỗi
+                        'trace' => $e->getTraceAsString() // Stack trace để debug
                     ]);
                 }
             } else {
+                // Nếu user không có email, ghi log cảnh báo
                 Log::warning('Hosting order - User has no email', [
                     'user_id' => $user->id,
                     'username' => $user->taikhoan,
@@ -510,15 +616,18 @@ class CheckoutController extends Controller
                 ]);
             }
 
+            // Trả về JSON response thành công và redirect URL
             return response()->json([
                 'success' => true,
                 'message' => 'Mua Hosting Thành Công!',
-                'redirect' => route('contact-admin', ['type' => 'hosting', 'mgd' => $mgd])
+                'redirect' => route('contact-admin', ['type' => 'hosting', 'mgd' => $mgd]) // URL để liên hệ admin
             ]);
 
         } catch (\Exception $e) {
+            // Nếu có lỗi bất kỳ, rollback transaction
             DB::rollBack();
             
+            // Trả về JSON response lỗi
             return response()->json([
                 'success' => false,
                 'message' => 'Không Thể Mua Vào Lúc Này!'
@@ -527,11 +636,15 @@ class CheckoutController extends Controller
     }
 
     /**
-     * Process VPS purchase
+     * Xử lý mua VPS (process VPS purchase)
+     * Hàm này được gọi từ AJAX request khi người dùng submit form mua VPS
+     * 
+     * @param Request $request - HTTP request chứa vps_id và period (month/year)
+     * @return \Illuminate\Http\JsonResponse - JSON response cho AJAX
      */
     public function processVPS(Request $request)
     {
-        // Validate user is logged in
+        // Kiểm tra người dùng đã đăng nhập chưa
         if (!session()->has('users')) {
             return response()->json([
                 'success' => false,
@@ -539,21 +652,23 @@ class CheckoutController extends Controller
             ]);
         }
 
-        // Validate input
+        // Validate dữ liệu đầu vào từ form
         $request->validate([
-            'vps_id' => 'required|integer',
-            'period' => 'required|in:month,year'
+            'vps_id' => 'required|integer', // ID VPS bắt buộc, kiểu integer
+            'period' => 'required|in:month,year' // Thời hạn bắt buộc, chỉ nhận 'month' hoặc 'year'
         ]);
 
-        $vpsId = $request->input('vps_id');
-        $period = $request->input('period');
+        // Lấy dữ liệu từ request sau khi validate
+        $vpsId = $request->input('vps_id'); // ID gói VPS
+        $period = $request->input('period'); // Thời hạn: 'month' hoặc 'year'
         
-        // Generate unique transaction ID
+        // Tạo mã giao dịch duy nhất
         $mgd = $this->generateMGD();
 
-        // Find VPS package
+        // Tìm gói VPS trong database theo ID
         $vps = VPS::find($vpsId);
         
+        // Nếu không tìm thấy gói VPS, trả về lỗi
         if (!$vps) {
             return response()->json([
                 'success' => false,
@@ -561,11 +676,13 @@ class CheckoutController extends Controller
             ]);
         }
 
+        // Xác định giá dựa trên thời hạn: tháng hoặc năm
         $price = $period === 'month' ? $vps->price_month : $vps->price_year;
 
-        // Get user
+        // Tìm thông tin người dùng từ session
         $user = User::findByUsername(session('users'));
         
+        // Nếu không tìm thấy user, trả về lỗi
         if (!$user) {
             return response()->json([
                 'success' => false,
@@ -573,7 +690,7 @@ class CheckoutController extends Controller
             ]);
         }
 
-        // Validate user has sufficient balance
+        // Kiểm tra số dư tài khoản có đủ để thanh toán không
         if ($user->tien < $price) {
             return response()->json([
                 'success' => false,
@@ -581,66 +698,73 @@ class CheckoutController extends Controller
             ]);
         }
 
+        // Bắt đầu transaction database
         try {
             DB::beginTransaction();
 
-            // Deduct balance
+            // Trừ số dư tài khoản người dùng
             $user->incrementBalance(-1 * (int)$price);
 
-            // Create order
-            $history = new VPSHistory();
-            $history->uid = $user->id;
-            $history->vps_id = $vpsId;
-            $history->period = $period;
-            $history->mgd = (string)$mgd;
-            $history->status = 1; // Approved immediately
-            $history->time = date('Y-m-d H:i:s');
-            $history->save();
+            // Tạo đơn hàng VPS mới trong bảng VPSHistory
+            $history = new VPSHistory(); // Tạo instance mới của Model VPSHistory
+            $history->uid = $user->id; // ID người dùng
+            $history->vps_id = $vpsId; // ID gói VPS
+            $history->period = $period; // Thời hạn: 'month' hoặc 'year'
+            $history->mgd = (string)$mgd; // Mã giao dịch
+            $history->status = 1; // Trạng thái: 1 = Đã duyệt ngay (Approved immediately)
+            $history->time = date('Y-m-d H:i:s'); // Thời gian tạo đơn hàng
+            $history->save(); // Lưu vào database
 
+            // Commit transaction - xác nhận tất cả thay đổi
             DB::commit();
 
-            // Send Telegram notification to admin
+            // Gửi thông báo Telegram cho admin về đơn hàng mới
             $this->telegramService->notifyNewOrder('vps', [
-                'username' => $user->taikhoan,
-                'mgd' => (string)$mgd,
-                'package_name' => $vps->name,
-                'period' => $period === 'month' ? '1' : '12',
-                'time' => date('d/m/Y - H:i:s')
+                'username' => $user->taikhoan, // Username người dùng
+                'mgd' => (string)$mgd, // Mã giao dịch
+                'package_name' => $vps->name, // Tên gói VPS
+                'period' => $period === 'month' ? '1' : '12', // Thời hạn: 1 tháng hoặc 12 tháng
+                'time' => date('d/m/Y - H:i:s') // Thời gian định dạng Việt Nam
             ]);
 
-            // Send email confirmation to user
+            // Gửi email xác nhận đơn hàng cho người dùng (nếu có email)
             if ($user->email) {
                 try {
+                    // Ghi log khi bắt đầu gửi email
                     Log::info('Sending VPS order confirmation email', [
                         'user_email' => $user->email,
                         'mgd' => $mgd,
                         'vps_id' => $vpsId
                     ]);
                     
+                    // Gửi email xác nhận đơn hàng
                     Mail::to($user->email)->send(new OrderConfirmationMail(
-                        $history,
-                        'vps',
-                        $user,
+                        $history, // Đối tượng VPSHistory chứa thông tin đơn hàng
+                        'vps', // Loại đơn hàng: vps
+                        $user, // Đối tượng User
                         [
-                            'price' => $price,
-                            'package_name' => $vps->name,
-                            'period' => $period,
+                            'price' => $price, // Giá VPS
+                            'package_name' => $vps->name, // Tên gói VPS
+                            'period' => $period, // Thời hạn: 'month' hoặc 'year'
                         ]
                     ));
                     
+                    // Ghi log khi gửi email thành công
                     Log::info('VPS order confirmation email sent successfully', [
                         'user_email' => $user->email,
                         'mgd' => $mgd
                     ]);
                 } catch (\Exception $e) {
+                    // Nếu có lỗi khi gửi email, chỉ ghi log
                     Log::error('VPS order email error', [
                         'user_email' => $user->email,
                         'mgd' => $mgd,
-                        'error' => $e->getMessage(),
-                        'trace' => $e->getTraceAsString()
+                        'error' => $e->getMessage(), // Thông báo lỗi
+                        'trace' => $e->getTraceAsString() // Stack trace để debug
                     ]);
                 }
             } else {
+                // Nếu user không có email, ghi log cảnh báo
                 Log::warning('VPS order - User has no email', [
                     'user_id' => $user->id,
                     'username' => $user->taikhoan,
@@ -648,15 +772,18 @@ class CheckoutController extends Controller
                 ]);
             }
 
+            // Trả về JSON response thành công và redirect URL
             return response()->json([
                 'success' => true,
                 'message' => 'Mua VPS Thành Công!',
-                'redirect' => route('contact-admin', ['type' => 'vps', 'mgd' => $mgd])
+                'redirect' => route('contact-admin', ['type' => 'vps', 'mgd' => $mgd]) // URL để liên hệ admin
             ]);
 
         } catch (\Exception $e) {
+            // Nếu có lỗi bất kỳ, rollback transaction
             DB::rollBack();
             
+            // Trả về JSON response lỗi
             return response()->json([
                 'success' => false,
                 'message' => 'Không Thể Mua Vào Lúc Này!'
@@ -665,11 +792,15 @@ class CheckoutController extends Controller
     }
 
     /**
-     * Process source code purchase
+     * Xử lý mua source code (process source code purchase)
+     * Hàm này được gọi từ AJAX request khi người dùng submit form mua source code
+     * 
+     * @param Request $request - HTTP request chứa source_code_id
+     * @return \Illuminate\Http\JsonResponse - JSON response cho AJAX
      */
     public function processSourceCode(Request $request)
     {
-        // Validate user is logged in
+        // Kiểm tra người dùng đã đăng nhập chưa
         if (!session()->has('users')) {
             return response()->json([
                 'success' => false,
@@ -677,19 +808,21 @@ class CheckoutController extends Controller
             ]);
         }
 
-        // Validate input
+        // Validate dữ liệu đầu vào từ form
         $request->validate([
-            'source_code_id' => 'required|integer'
+            'source_code_id' => 'required|integer' // ID source code bắt buộc, kiểu integer
         ]);
 
-        $sourceCodeId = $request->input('source_code_id');
+        // Lấy dữ liệu từ request sau khi validate
+        $sourceCodeId = $request->input('source_code_id'); // ID source code
         
-        // Generate unique transaction ID
+        // Tạo mã giao dịch duy nhất
         $mgd = $this->generateMGD();
 
-        // Find source code
+        // Tìm source code trong database theo ID
         $sourceCode = SourceCode::find($sourceCodeId);
         
+        // Nếu không tìm thấy source code, trả về lỗi
         if (!$sourceCode) {
             return response()->json([
                 'success' => false,
@@ -697,11 +830,13 @@ class CheckoutController extends Controller
             ]);
         }
 
+        // Lấy giá source code
         $price = $sourceCode->price;
 
-        // Get user
+        // Tìm thông tin người dùng từ session
         $user = User::findByUsername(session('users'));
         
+        // Nếu không tìm thấy user, trả về lỗi
         if (!$user) {
             return response()->json([
                 'success' => false,
@@ -709,7 +844,7 @@ class CheckoutController extends Controller
             ]);
         }
 
-        // Validate user has sufficient balance
+        // Kiểm tra số dư tài khoản có đủ để thanh toán không
         if ($user->tien < $price) {
             return response()->json([
                 'success' => false,
@@ -717,77 +852,85 @@ class CheckoutController extends Controller
             ]);
         }
 
+        // Bắt đầu transaction database
         try {
             DB::beginTransaction();
 
-            // Deduct balance
+            // Trừ số dư tài khoản người dùng
             $user->incrementBalance(-1 * (int)$price);
 
-            // Create order
-            $history = new SourceCodeHistory();
-            $history->uid = $user->id;
-            $history->source_code_id = $sourceCodeId;
-            $history->mgd = (string)$mgd;
-            $history->status = 1; // Approved immediately
-            $history->time = date('Y-m-d H:i:s');
-            $history->save();
+            // Tạo đơn hàng source code mới trong bảng SourceCodeHistory
+            $history = new SourceCodeHistory(); // Tạo instance mới của Model SourceCodeHistory
+            $history->uid = $user->id; // ID người dùng
+            $history->source_code_id = $sourceCodeId; // ID source code
+            $history->mgd = (string)$mgd; // Mã giao dịch
+            $history->status = 1; // Trạng thái: 1 = Đã duyệt ngay (Approved immediately)
+            $history->time = date('Y-m-d H:i:s'); // Thời gian tạo đơn hàng
+            $history->save(); // Lưu vào database
 
+            // Commit transaction - xác nhận tất cả thay đổi
             DB::commit();
 
-            // Prepare response data
+            // Chuẩn bị dữ liệu response trước (để đảm bảo luôn trả về thành công nếu transaction commit)
             $responseData = [
                 'success' => true,
                 'message' => 'Mua Source Code Thành Công!',
-                'redirect' => route('download.index', ['mgd' => $mgd])
+                'redirect' => route('download.index', ['mgd' => $mgd]) // URL để tải source code
             ];
 
-            // Send Telegram notification to admin (non-blocking)
+            // Gửi thông báo Telegram cho admin (non-blocking - không chặn response)
+            // Nếu Telegram lỗi, không làm fail transaction
             try {
                 $this->telegramService->notifyNewOrder('sourcecode', [
-                    'username' => $user->taikhoan,
-                    'mgd' => (string)$mgd,
-                    'product_name' => $sourceCode->name,
-                    'time' => date('d/m/Y - H:i:s')
+                    'username' => $user->taikhoan, // Username người dùng
+                    'mgd' => (string)$mgd, // Mã giao dịch
+                    'product_name' => $sourceCode->name, // Tên source code
+                    'time' => date('d/m/Y - H:i:s') // Thời gian định dạng Việt Nam
                 ]);
             } catch (\Exception $e) {
+                // Nếu Telegram lỗi, chỉ ghi log, không làm fail response
                 Log::error('Telegram error for sourcecode order ' . $mgd . ': ' . $e->getMessage());
-                // Không làm fail response
+                // Không làm fail response - vì đơn hàng đã được tạo thành công
             }
 
-            // Send email confirmation to user (non-blocking)
+            // Gửi email xác nhận đơn hàng cho người dùng (non-blocking - không chặn response)
             if ($user->email) {
                 try {
+                    // Ghi log khi bắt đầu gửi email
                     Log::info('Sending sourcecode order confirmation email', [
                         'user_email' => $user->email,
                         'mgd' => $mgd,
                         'source_code_id' => $sourceCodeId
                     ]);
                     
+                    // Gửi email xác nhận đơn hàng
                     Mail::to($user->email)->send(new OrderConfirmationMail(
-                        $history,
-                        'sourcecode',
-                        $user,
+                        $history, // Đối tượng SourceCodeHistory chứa thông tin đơn hàng
+                        'sourcecode', // Loại đơn hàng: sourcecode
+                        $user, // Đối tượng User
                         [
-                            'price' => $price,
-                            'source_code_name' => $sourceCode->name,
+                            'price' => $price, // Giá source code
+                            'source_code_name' => $sourceCode->name, // Tên source code
                         ]
                     ));
                     
+                    // Ghi log khi gửi email thành công
                     Log::info('Sourcecode order confirmation email sent successfully', [
                         'user_email' => $user->email,
                         'mgd' => $mgd
                     ]);
                 } catch (\Exception $e) {
-                    // Log lỗi email nhưng không làm fail transaction
+                    // Nếu có lỗi khi gửi email, chỉ ghi log, không làm fail transaction
                     Log::error('Sourcecode order email error', [
                         'user_email' => $user->email,
                         'mgd' => $mgd,
-                        'error' => $e->getMessage(),
-                        'trace' => $e->getTraceAsString()
+                        'error' => $e->getMessage(), // Thông báo lỗi
+                        'trace' => $e->getTraceAsString() // Stack trace để debug
                     ]);
-                    // Không throw exception, tiếp tục xử lý
+                    // Không throw exception, tiếp tục xử lý - vì đơn hàng đã được tạo thành công
                 }
             } else {
+                // Nếu user không có email, ghi log cảnh báo
                 Log::warning('Sourcecode order - User has no email', [
                     'user_id' => $user->id,
                     'username' => $user->taikhoan,
@@ -796,15 +939,18 @@ class CheckoutController extends Controller
             }
 
             // Luôn trả về response thành công nếu transaction đã commit
+            // Dù Telegram hoặc Email có lỗi, đơn hàng vẫn được tạo thành công
             return response()->json($responseData, 200);
 
         } catch (\Exception $e) {
+            // Nếu có lỗi bất kỳ trong transaction, rollback
             DB::rollBack();
             
-            // Log chi tiết lỗi để debug
+            // Ghi log chi tiết lỗi để debug
             Log::error('Checkout SourceCode Error: ' . $e->getMessage());
             Log::error('Stack trace: ' . $e->getTraceAsString());
             
+            // Trả về JSON response lỗi
             return response()->json([
                 'success' => false,
                 'message' => 'Không Thể Mua Vào Lúc Này! Vui lòng thử lại sau.'

@@ -1,65 +1,90 @@
 <?php
-
+// Khai báo namespace cho Controller này - thuộc App\Http\Controllers
 namespace App\Http\Controllers;
 
-use App\Models\Card;
-use App\Models\Settings;
-use App\Services\PaymentService;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Log;
+// Import các Model và Service cần thiết
+use App\Models\Card; // Model quản lý thẻ cào
+use App\Models\Settings; // Model quản lý cài đặt hệ thống
+use App\Services\PaymentService; // Service xử lý thanh toán thẻ cào
+use Illuminate\Http\Request; // Class xử lý HTTP request
+use Illuminate\Support\Facades\Auth; // Facade để xác thực (không dùng trong code này)
+use Illuminate\Support\Facades\Log; // Facade để ghi log
 
+/**
+ * Class PaymentController
+ * Controller xử lý nạp tiền bằng thẻ cào
+ */
 class PaymentController extends Controller
 {
+    // Thuộc tính lưu trữ instance của PaymentService
     protected $paymentService;
 
+    /**
+     * Hàm khởi tạo (Constructor)
+     * Dependency Injection: Laravel tự động inject PaymentService vào đây
+     * 
+     * @param PaymentService $paymentService - Service để xử lý thanh toán thẻ cào
+     */
     public function __construct(PaymentService $paymentService)
     {
+        // Gán PaymentService vào thuộc tính của class
         $this->paymentService = $paymentService;
     }
 
     /**
-     * Show recharge page
+     * Hiển thị trang nạp thẻ
+     * 
+     * @return \Illuminate\View\View|\Illuminate\Http\RedirectResponse
      */
     public function recharge()
     {
-        // Get current user from session
+        // Lấy username từ session
         $username = session('users');
+        // Nếu chưa đăng nhập, redirect đến trang đăng nhập
         if (!$username) {
             return redirect()->route('login');
         }
 
+        // Tìm user trong database theo username
         $user = \App\Models\User::where('taikhoan', $username)->first();
+        // Nếu không tìm thấy user, redirect đến trang đăng nhập
         if (!$user) {
             return redirect()->route('login');
         }
 
-        // Get user's card history
+        // Lấy lịch sử nạp thẻ của user, sắp xếp theo ID giảm dần (mới nhất trước)
         $cards = Card::where('uid', $user->id)
             ->orderBy('id', 'desc')
             ->get();
 
-        // Get settings for display
+        // Lấy cài đặt hệ thống để hiển thị thông tin
         $settings = Settings::first();
 
+        // Trả về view với dữ liệu user, lịch sử thẻ và settings
         return view('pages.recharge', compact('user', 'cards', 'settings'));
     }
 
     /**
-     * Process card recharge
+     * Xử lý nạp thẻ cào
+     * 
+     * @param Request $request - HTTP request chứa pin, serial, amount, type
+     * @return \Illuminate\Http\JsonResponse - JSON response cho AJAX
      */
     public function processRecharge(Request $request)
     {
-        // Validate input
+        // Validate dữ liệu đầu vào từ form
         $request->validate([
-            'pin' => 'required|string|max:30',
-            'serial' => 'required|string|max:30',
-            'amount' => 'required|integer|in:10000,20000,30000,50000,100000,200000,300000,500000,1000000',
-            'type' => 'required|string|in:VIETTEL,VINAPHONE,VIETNAMOBILE,MOBIFONE,GARENA,ZING,GATE'
+            'pin' => 'required|string|max:30', // Mã PIN thẻ cào, bắt buộc, tối đa 30 ký tự
+            'serial' => 'required|string|max:30', // Serial thẻ cào, bắt buộc, tối đa 30 ký tự
+            'amount' => 'required|integer|in:10000,20000,30000,50000,100000,200000,300000,500000,1000000', 
+            // Mệnh giá thẻ, bắt buộc, chỉ nhận các giá trị trong danh sách
+            'type' => 'required|string|in:VIETTEL,VINAPHONE,VIETNAMOBILE,MOBIFONE,GARENA,ZING,GATE' 
+            // Loại thẻ, bắt buộc, chỉ nhận các loại trong danh sách
         ]);
 
-        // Get current user
+        // Lấy username từ session
         $username = session('users');
+        // Nếu chưa đăng nhập, trả về JSON response lỗi
         if (!$username) {
             return response()->json([
                 'success' => false,
@@ -67,7 +92,9 @@ class PaymentController extends Controller
             ]);
         }
 
+        // Tìm user trong database theo username
         $user = \App\Models\User::where('taikhoan', $username)->first();
+        // Nếu không tìm thấy user, trả về JSON response lỗi
         if (!$user) {
             return response()->json([
                 'success' => false,
@@ -75,24 +102,29 @@ class PaymentController extends Controller
             ]);
         }
 
-        // Process card recharge
+        // Xử lý nạp thẻ thông qua PaymentService
         $result = $this->paymentService->rechargeCard(
-            $request->serial,
-            $request->pin,
-            $request->type,
-            $request->amount,
-            $user->id
+            $request->serial, // Serial thẻ
+            $request->pin, // PIN thẻ
+            $request->type, // Loại thẻ
+            $request->amount, // Mệnh giá
+            $user->id // ID người dùng
         );
 
+        // Trả về kết quả dưới dạng JSON
         return response()->json($result);
     }
 
     /**
-     * Process card recharge (AJAX endpoint - legacy compatibility)
-     * Alias for processRecharge() for backward compatibility
+     * Xử lý nạp thẻ cào (AJAX endpoint - legacy compatibility)
+     * Alias cho processRecharge() để tương thích ngược với code cũ
+     * 
+     * @param Request $request - HTTP request chứa thông tin thẻ
+     * @return \Illuminate\Http\JsonResponse - JSON response cho AJAX
      */
     public function processCard(Request $request)
     {
+        // Gọi lại hàm processRecharge()
         return $this->processRecharge($request);
     }
 

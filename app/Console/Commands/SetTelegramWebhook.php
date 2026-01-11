@@ -1,89 +1,109 @@
 <?php
-
+// Khai báo namespace cho Command này - thuộc App\Console\Commands
 namespace App\Console\Commands;
 
-use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
+// Import Command base class và các Facade cần thiết
+use Illuminate\Console\Command; // Base class cho Artisan command
+use Illuminate\Support\Facades\Http; // Facade để gửi HTTP request
+use Illuminate\Support\Facades\Log; // Facade để ghi log
 
+/**
+ * Class SetTelegramWebhook
+ * Artisan command để thiết lập Telegram webhook URL cho bot
+ * Webhook cho phép Telegram gửi updates đến server của bạn
+ */
 class SetTelegramWebhook extends Command
 {
     /**
-     * The name and signature of the console command.
+     * Tên và signature của command
+     * Signature định nghĩa cách gọi command: php artisan telegram:set-webhook [url]
+     * {url?} nghĩa là URL là tham số tùy chọn
      *
      * @var string
      */
     protected $signature = 'telegram:set-webhook {url?}';
 
     /**
-     * The console command description.
+     * Mô tả command (hiển thị khi chạy php artisan list)
      *
      * @var string
      */
-    protected $description = 'Set Telegram webhook URL for the bot';
+    protected $description = 'Thiết lập Telegram webhook URL cho bot';
 
     /**
-     * Execute the console command.
+     * Thực thi command
+     * Thiết lập webhook URL trên Telegram Bot API
      *
-     * @return int
+     * @return int - Exit code (0 = thành công, 1 = lỗi)
      */
     public function handle()
     {
+        // Lấy bot token từ config
         $botToken = config('services.telegram.bot_token');
 
+        // Kiểm tra bot token có được cấu hình chưa
         if (empty($botToken)) {
-            $this->error('Telegram bot token is not configured in .env file');
-            $this->info('Please set TELEGRAM_BOT_TOKEN in your .env file');
-            return 1;
+            $this->error('Telegram bot token chưa được cấu hình trong file .env');
+            $this->info('Vui lòng set TELEGRAM_BOT_TOKEN trong file .env của bạn');
+            return 1; // Exit code 1 = lỗi
         }
 
-        // Get webhook URL from argument or generate from APP_URL
-        $webhookUrl = $this->argument('url');
+        // Lấy webhook URL từ argument hoặc tự động tạo từ APP_URL
+        $webhookUrl = $this->argument('url'); // Lấy URL từ tham số command
         
+        // Nếu không có URL trong argument, tự động tạo từ APP_URL
         if (empty($webhookUrl)) {
-            $appUrl = config('app.url');
-            $webhookUrl = rtrim($appUrl, '/') . '/telegram/webhook';
+            $appUrl = config('app.url'); // Lấy APP_URL từ config
+            $webhookUrl = rtrim($appUrl, '/') . '/telegram/webhook'; // Tạo URL webhook
         }
 
-        $this->info("Setting Telegram webhook to: {$webhookUrl}");
+        // Hiển thị thông báo đang thiết lập webhook
+        $this->info("Đang thiết lập Telegram webhook đến: {$webhookUrl}");
 
         try {
-            // Set webhook
-            $response = Http::timeout(30)
+            // Thiết lập webhook trên Telegram Bot API
+            $response = Http::timeout(30) // Timeout 30 giây
                 ->post("https://api.telegram.org/bot{$botToken}/setWebhook", [
-                    'url' => $webhookUrl,
-                    'allowed_updates' => ['message', 'callback_query']
+                    'url' => $webhookUrl, // URL webhook
+                    'allowed_updates' => ['message', 'callback_query'] // Chỉ nhận message và callback_query
                 ]);
 
+            // Kiểm tra response thành công (HTTP 200)
             if ($response->successful()) {
+                // Decode JSON response thành mảng PHP
                 $result = $response->json();
                 
+                // Kiểm tra kết quả từ Telegram API
                 if ($result['ok'] ?? false) {
-                    $this->info('✅ Webhook set successfully!');
-                    $this->info('Description: ' . ($result['description'] ?? 'N/A'));
+                    // Nếu thành công, hiển thị thông báo
+                    $this->info('✅ Webhook đã được thiết lập thành công!');
+                    $this->info('Mô tả: ' . ($result['description'] ?? 'N/A'));
                     
-                    // Get webhook info to verify
-                    $this->info("\nVerifying webhook...");
-                    $this->call('telegram:get-webhook-info');
+                    // Lấy thông tin webhook để xác minh
+                    $this->info("\nĐang xác minh webhook...");
+                    $this->call('telegram:get-webhook-info'); // Gọi command khác để lấy thông tin webhook
                     
-                    return 0;
+                    return 0; // Exit code 0 = thành công
                 } else {
-                    $this->error('❌ Failed to set webhook');
-                    $this->error('Error: ' . ($result['description'] ?? 'Unknown error'));
-                    return 1;
+                    // Nếu thất bại, hiển thị lỗi
+                    $this->error('❌ Không thể thiết lập webhook');
+                    $this->error('Lỗi: ' . ($result['description'] ?? 'Lỗi không xác định'));
+                    return 1; // Exit code 1 = lỗi
                 }
             } else {
-                $this->error('❌ HTTP Error: ' . $response->status());
+                // Nếu HTTP status code không phải 200, hiển thị lỗi HTTP
+                $this->error('❌ Lỗi HTTP: ' . $response->status());
                 $this->error('Response: ' . $response->body());
-                return 1;
+                return 1; // Exit code 1 = lỗi
             }
         } catch (\Exception $e) {
+            // Nếu có exception, hiển thị lỗi và ghi log
             $this->error('❌ Exception: ' . $e->getMessage());
             Log::error('Telegram webhook setup error', [
-                'message' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'message' => $e->getMessage(), // Thông báo lỗi
+                'trace' => $e->getTraceAsString() // Stack trace
             ]);
-            return 1;
+            return 1; // Exit code 1 = lỗi
         }
     }
 }

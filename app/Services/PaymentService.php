@@ -1,33 +1,48 @@
 <?php
-
+// Khai báo namespace cho Service này - thuộc App\Services
 namespace App\Services;
 
-use App\Models\Card;
-use App\Models\User;
-use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
+// Import các Model và Facade cần thiết
+use App\Models\Card; // Model quản lý thẻ cào
+use App\Models\User; // Model quản lý người dùng
+use Illuminate\Support\Facades\Http; // Facade để gửi HTTP request
+use Illuminate\Support\Facades\Log; // Facade để ghi log
 
+/**
+ * Class PaymentService
+ * Service xử lý thanh toán thẻ cào thông qua API cardvip.vn
+ */
 class PaymentService
 {
+    // Thuộc tính lưu trữ URL API cardvip
     protected $apiUrl;
+    // Thuộc tính lưu trữ API key từ config
     protected $apiKey;
+    // Thuộc tính lưu trữ callback URL
     protected $callback;
 
+    /**
+     * Hàm khởi tạo (Constructor)
+     * Lấy cấu hình từ config/services.php
+     */
     public function __construct()
     {
+        // URL API của cardvip.vn để tạo giao dịch nạp thẻ
         $this->apiUrl = 'https://partner.cardvip.vn/api/createExchange';
+        // API key từ config (lấy từ .env)
         $this->apiKey = config('services.cardvip.api_key');
+        // Callback URL để nhận kết quả từ cardvip (lấy từ .env hoặc config)
         $this->callback = config('services.cardvip.callback');
     }
 
     /**
-     * Send card recharge request to cardvip API
+     * Gửi yêu cầu nạp thẻ cào đến API cardvip
      * 
-     * @param string $serial
-     * @param string $pin
-     * @param string $type
-     * @param int $amount
-     * @param int $userId
+     * @param string $serial - Serial thẻ cào
+     * @param string $pin - Mã PIN thẻ cào
+     * @param string $type - Loại thẻ (VIETTEL, VINAPHONE, etc.)
+     * @param int $amount - Mệnh giá thẻ
+     * @param int $userId - ID người dùng nạp thẻ
      * @return array ['success' => bool, 'message' => string, 'requestId' => string|null]
      */
     public function rechargeCard(string $serial, string $pin, string $type, int $amount, int $userId): array

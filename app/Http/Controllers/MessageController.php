@@ -1,70 +1,85 @@
 <?php
-
+// Khai báo namespace cho Controller này - thuộc App\Http\Controllers
 namespace App\Http\Controllers;
 
-use App\Models\Feedback;
-use App\Models\User;
-use Illuminate\Http\Request;
+// Import các Model cần thiết
+use App\Models\Feedback; // Model quản lý feedback
+use App\Models\User; // Model quản lý người dùng
+use Illuminate\Http\Request; // Class xử lý HTTP request
 
+/**
+ * Class MessageController
+ * Controller xử lý tin nhắn/phản hồi từ admin cho user
+ */
 class MessageController extends Controller
 {
     /**
-     * Display user's feedback history (messages from admin)
+     * Hiển thị lịch sử tin nhắn/phản hồi từ admin
+     * 
+     * @return \Illuminate\View\View|\Illuminate\Http\RedirectResponse
      */
     public function index()
     {
-        // Check if user is logged in
+        // Kiểm tra user đã đăng nhập chưa
         if (!session()->has('users')) {
             return redirect()->route('login');
         }
 
-        // Get current user
+        // Lấy thông tin user hiện tại từ database
         $user = User::where('taikhoan', session('users'))->first();
+        // Nếu không tìm thấy user, redirect đến trang đăng nhập
         if (!$user) {
             return redirect()->route('login');
         }
 
-        // Get user's feedback history where admin has replied
+        // Lấy lịch sử feedback của user (bao gồm cả phản hồi từ admin)
         $userFeedbacks = Feedback::where('uid', $user->id)
-            ->orderBy('id', 'desc')
+            ->orderBy('id', 'desc') // Sắp xếp theo ID giảm dần (mới nhất trước)
             ->get();
 
-        // Count unread messages (status = 1 means admin replied but user hasn't read)
+        // Đếm số tin nhắn chưa đọc (status = 1 nghĩa là admin đã phản hồi nhưng user chưa đọc)
         $unreadCount = Feedback::where('uid', $user->id)
-            ->where('status', 1)
-            ->whereNotNull('admin_reply')
+            ->where('status', 1) // Đã được admin phản hồi
+            ->whereNotNull('admin_reply') // Có phản hồi từ admin
             ->count();
 
+        // Trả về view với dữ liệu user, lịch sử feedback và số tin nhắn chưa đọc
         return view('pages.messages', compact('user', 'userFeedbacks', 'unreadCount'));
     }
 
     /**
-     * Mark feedback as read
+     * Đánh dấu feedback là đã đọc
+     * 
+     * @param int $id - ID của feedback cần đánh dấu đã đọc
+     * @return \Illuminate\Http\RedirectResponse
      */
     public function markAsRead($id)
     {
-        // Check if user is logged in
+        // Kiểm tra user đã đăng nhập chưa
         if (!session()->has('users')) {
             return redirect()->route('login');
         }
 
-        // Get current user
+        // Lấy thông tin user hiện tại từ database
         $user = User::where('taikhoan', session('users'))->first();
+        // Nếu không tìm thấy user, redirect đến trang đăng nhập
         if (!$user) {
             return redirect()->route('login');
         }
 
-        // Find feedback and verify ownership
+        // Tìm feedback và kiểm tra quyền sở hữu (đảm bảo user chỉ đánh dấu feedback của mình)
         $feedback = Feedback::where('id', $id)
-            ->where('uid', $user->id)
+            ->where('uid', $user->id) // Chỉ tìm feedback của user này
             ->first();
 
+        // Nếu tìm thấy feedback, cập nhật trạng thái thành đã đọc
         if ($feedback) {
-            // Update status to 2 (read)
+            // Cập nhật status = 2 (đã đọc)
             $feedback->status = 2;
             $feedback->save();
         }
 
+        // Redirect về trang messages
         return redirect()->route('messages.index');
     }
 }

@@ -1,57 +1,78 @@
 <?php
-
+// Khai báo namespace cho Controller này - thuộc App\Http\Controllers
 namespace App\Http\Controllers;
 
-use App\Models\User;
-use App\Mail\ForgotPasswordMail;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
+// Import các class cần thiết
+use App\Models\User; // Model quản lý người dùng
+use App\Mail\ForgotPasswordMail; // Class gửi email quên mật khẩu
+use Illuminate\Http\Request; // Class xử lý HTTP request
+use Illuminate\Support\Facades\Log; // Facade để ghi log
+use Illuminate\Support\Facades\Mail; // Facade để gửi email
+use Illuminate\Support\Facades\DB; // Facade để thao tác database
+use Illuminate\Support\Facades\Hash; // Facade để hash mật khẩu
+use Illuminate\Support\Str; // Helper class để tạo chuỗi ngẫu nhiên
 
+/**
+ * Class AuthController
+ * Controller xử lý các thao tác xác thực: đăng nhập, đăng ký, quên mật khẩu
+ */
 class AuthController extends Controller
 {
     /**
      * Hiển thị form đăng nhập (dành cho cả user và admin)
+     * 
+     * @return \Illuminate\View\View - View form đăng nhập
      */
     public function showLogin()
     {
+        // Trả về view đăng nhập
         return view('auth.login');
     }
 
     /**
      * Xử lý đăng nhập
+     * Kiểm tra thông tin đăng nhập và tạo session cho người dùng
+     * 
+     * @param Request $request - HTTP request chứa taikhoan và matkhau
+     * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
      */
     public function login(Request $request)
     {
+        // Validate dữ liệu đầu vào từ form
         $request->validate([
-            'taikhoan' => 'required',
-            'matkhau' => 'required',
+            'taikhoan' => 'required', // Tài khoản bắt buộc
+            'matkhau' => 'required', // Mật khẩu bắt buộc
         ]);
 
+        // Kiểm tra thông tin đăng nhập bằng phương thức static của User model
+        // verifyCredentials sẽ hash mật khẩu MD5 và so sánh với database
         if (User::verifyCredentials($request->taikhoan, $request->matkhau)) {
+            // Tìm thông tin user trong database theo username
             $user = User::findByUsername($request->taikhoan);
+            
+            // Nếu tìm thấy user
             if ($user) {
                 // Lưu session (cho cả user và admin)
+                // Lưu username vào session với key 'users'
                 session(['users' => $user->taikhoan]);
+                // Lưu user ID vào session với key 'user_id'
                 session(['user_id' => $user->id]);
                 
-                // Đảm bảo session được lưu ngay lập tức
+                // Đảm bảo session được lưu ngay lập tức (quan trọng cho AJAX requests)
                 session()->save();
                 
-                // Log để debug
+                // Ghi log để debug - theo dõi quá trình đăng nhập
                 \Illuminate\Support\Facades\Log::info('User login - Session saved', [
-                    'username' => $user->taikhoan,
-                    'user_id' => $user->id,
-                    'session_id' => session()->getId(),
-                    'has_users' => session()->has('users'),
-                    'users_value' => session('users')
+                    'username' => $user->taikhoan, // Username đã đăng nhập
+                    'user_id' => $user->id, // ID người dùng
+                    'session_id' => session()->getId(), // ID của session
+                    'has_users' => session()->has('users'), // Kiểm tra session có key 'users' không
+                    'users_value' => session('users') // Giá trị của key 'users' trong session
                 ]);
                 
-                // Nếu là AJAX request
+                // Nếu là AJAX request (đăng nhập từ modal/popup)
                 if ($request->ajax()) {
+                    // Trả về JSON response với script để hiển thị thông báo và redirect
                     return response()->json([
                         'success' => true,
                         'message' => 'Đăng nhập thành công!',
@@ -64,12 +85,14 @@ class AuthController extends Controller
                     ]);
                 }
                 
+                // Nếu không phải AJAX request, redirect về trang chủ với thông báo thành công
                 return redirect()->route('home')->with('success', 'Đăng nhập thành công!');
             }
         }
 
-        // Nếu là AJAX request
+        // Nếu thông tin đăng nhập không hợp lệ và là AJAX request
         if ($request->ajax()) {
+            // Trả về JSON response lỗi với script hiển thị thông báo
             return response()->json([
                 'success' => false,
                 'message' => 'Thông tin đăng nhập không hợp lệ!',
@@ -77,35 +100,50 @@ class AuthController extends Controller
             ]);
         }
 
+        // Nếu không phải AJAX request, quay lại trang trước với thông báo lỗi
         return back()->withErrors(['taikhoan' => 'Thông tin đăng nhập không hợp lệ!']);
     }
 
     /**
      * Hiển thị form đăng ký
+     * 
+     * @return \Illuminate\View\View - View form đăng ký
      */
     public function showRegister()
     {
+        // Trả về view đăng ký
         return view('auth.register');
     }
 
     /**
-     * Xử lý đăng ký
+     * Xử lý đăng ký tài khoản mới
+     * Validate thông tin, tạo user mới và tự động đăng nhập
+     * 
+     * @param Request $request - HTTP request chứa taikhoan, password, password2, email
+     * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
      */
     public function register(Request $request)
     {
+        // Validate dữ liệu đầu vào từ form với các rule cụ thể
         $request->validate([
-            'taikhoan' => 'required|unique:users,taikhoan|regex:/^[a-zA-Z0-9_]{3,20}$/',
-            'password' => 'required|min:8|regex:/^(?=.*[A-Za-z])(?=.*\d)/',
-            'password2' => 'required|same:password',
-            'email' => 'required|email|unique:users,email',
+            'taikhoan' => 'required|unique:users,taikhoan|regex:/^[a-zA-Z0-9_]{3,20}$/', 
+            // Tài khoản: bắt buộc, duy nhất trong bảng users, chỉ chữ/số/gạch dưới, 3-20 ký tự
+            'password' => 'required|min:8|regex:/^(?=.*[A-Za-z])(?=.*\d)/', 
+            // Mật khẩu: bắt buộc, tối thiểu 8 ký tự, phải có cả chữ và số
+            'password2' => 'required|same:password', 
+            // Xác nhận mật khẩu: bắt buộc, phải giống password
+            'email' => 'required|email|unique:users,email', 
+            // Email: bắt buộc, định dạng email hợp lệ, duy nhất trong bảng users
         ], [
+            // Thông báo lỗi tùy chỉnh cho từng rule
             'taikhoan.regex' => 'Tên đăng nhập chỉ gồm chữ, số, gạch dưới (3-20 ký tự)',
             'password.regex' => 'Mật khẩu tối thiểu 8 ký tự, gồm chữ và số',
             'password2.same' => 'Mật khẩu xác nhận không khớp'
         ]);
 
-        // Kiểm tra username và password không được giống nhau
+        // Kiểm tra username và password không được giống nhau (bảo mật)
         if ($request->taikhoan == $request->password) {
+            // Nếu là AJAX request, trả về JSON response lỗi
             if ($request->ajax()) {
                 return response()->json([
                     'success' => false,
@@ -113,26 +151,32 @@ class AuthController extends Controller
                     'html' => '<script>toastr.error("Tên Đăng Nhập Và Mật Khẩu Phải Khác Nhau!", "Thông Báo");</script>'
                 ]);
             }
+            // Nếu không phải AJAX, quay lại với thông báo lỗi
             return back()->withErrors(['taikhoan' => 'Tên đăng nhập và mật khẩu phải khác nhau!']);
         }
 
+        // Tạo chuỗi thời gian định dạng Việt Nam
         $time = now()->format('d/m/Y - H:i:s');
         
+        // Tạo user mới trong database
         $user = User::create([
-            'taikhoan' => $request->taikhoan,
-            'matkhau' => md5($request->password), // Giữ nguyên MD5 như code cũ
-            'email' => $request->email,
-            'tien' => 0,
-            'chucvu' => 0,
-            'time' => $time
+            'taikhoan' => $request->taikhoan, // Tên đăng nhập
+            'matkhau' => md5($request->password), // Mật khẩu được hash MD5 (giữ nguyên như code cũ)
+            'email' => $request->email, // Email
+            'tien' => 0, // Số dư ban đầu = 0
+            'chucvu' => 0, // Chức vụ: 0 = User thường, 1 = Admin
+            'time' => $time // Thời gian đăng ký
         ]);
 
-        // Set session sau khi đăng ký thành công
+        // Tự động đăng nhập sau khi đăng ký thành công
+        // Lưu username vào session với key 'users'
         session(['users' => $user->taikhoan]);
+        // Lưu user ID vào session với key 'user_id'
         session(['user_id' => $user->id]);
 
+        // Nếu là AJAX request, trả về JSON response thành công với script redirect
         if ($request->ajax()) {
-            $homeUrl = route('home');
+            $homeUrl = route('home'); // Lấy URL trang chủ
             return response()->json([
                 'success' => true,
                 'message' => 'Đăng ký thành công!',
@@ -140,50 +184,72 @@ class AuthController extends Controller
             ]);
         }
 
+        // Nếu không phải AJAX request, redirect về trang chủ với thông báo thành công
         return redirect()->route('home')->with('success', 'Đăng ký thành công!');
     }
 
     /**
-     * Đăng xuất
+     * Xử lý đăng xuất
+     * Xóa session và chuyển hướng về trang chủ
+     * 
+     * @param Request $request - HTTP request
+     * @return \Illuminate\Http\RedirectResponse
      */
     public function logout(Request $request)
     {
-        // Log the logout action
+        // Lấy username từ session để ghi log (mặc định 'Unknown' nếu không có)
         $username = session('users', 'Unknown');
+        // Ghi log hành động đăng xuất
         Log::info("User logout: {$username} at " . now()->format('Y-m-d H:i:s'));
         
-        // Clear session
+        // Xóa các key cụ thể trong session
         session()->forget(['users', 'user_id']);
+        // Vô hiệu hóa toàn bộ session (xóa tất cả dữ liệu)
         $request->session()->invalidate();
+        // Tạo lại CSRF token mới (bảo mật)
         $request->session()->regenerateToken();
         
+        // Redirect về trang chủ với thông báo thành công
         return redirect()->route('home')->with('success', 'Đăng xuất thành công!');
     }
 
     /**
      * Hiển thị form quên mật khẩu
+     * 
+     * @return \Illuminate\View\View - View form quên mật khẩu
      */
     public function showForgotPassword()
     {
+        // Trả về view form quên mật khẩu
         return view('auth.forgot-password');
     }
 
     /**
      * Gửi email quên mật khẩu
+     * Tạo token reset password và gửi email chứa link reset
+     * 
+     * @param Request $request - HTTP request chứa email
+     * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
      */
     public function forgotPassword(Request $request)
     {
+        // Validate dữ liệu đầu vào từ form
         $request->validate([
-            'email' => 'required|email|exists:users,email',
+            'email' => 'required|email|exists:users,email', 
+            // Email: bắt buộc, định dạng email hợp lệ, phải tồn tại trong bảng users
         ], [
+            // Thông báo lỗi tùy chỉnh
             'email.required' => 'Vui lòng nhập email!',
             'email.email' => 'Email không hợp lệ!',
             'email.exists' => 'Email không tồn tại trong hệ thống!',
         ]);
 
+        // Tìm user trong database theo email
         $user = User::where('email', $request->email)->first();
         
+        // Nếu không tìm thấy user (double check)
         if (!$user) {
+            // Nếu là AJAX request, trả về JSON response lỗi
             if ($request->ajax()) {
                 return response()->json([
                     'success' => false,
@@ -191,33 +257,36 @@ class AuthController extends Controller
                     'html' => '<script>toastr.error("Email Không Tồn Tại Trong Hệ Thống!", "Thông Báo");</script>'
                 ]);
             }
+            // Nếu không phải AJAX, quay lại với thông báo lỗi
             return back()->withErrors(['email' => 'Email không tồn tại trong hệ thống!']);
         }
 
-        // Tạo token reset password
+        // Tạo token reset password ngẫu nhiên (60 ký tự)
         $token = Str::random(60);
         
-        // Xóa token cũ nếu có (để tránh conflict)
+        // Xóa token cũ nếu có (để tránh conflict và đảm bảo chỉ có 1 token hợp lệ)
         DB::table('password_resets')->where('email', $user->email)->delete();
         
-        // Lưu token mới vào database
+        // Lưu token mới vào database (đã được hash bằng bcrypt)
         DB::table('password_resets')->insert([
-            'email' => $user->email,
-            'token' => Hash::make($token),
-            'created_at' => now()
+            'email' => $user->email, // Email của user
+            'token' => Hash::make($token), // Token đã được hash (bcrypt)
+            'created_at' => now() // Thời gian tạo token
         ]);
         
-        // Log để debug
+        // Ghi log để debug - theo dõi quá trình tạo token
         Log::info('Password Reset - Token created', [
             'email' => $user->email,
-            'token_length' => strlen($token),
+            'token_length' => strlen($token), // Độ dài token (60 ký tự)
             'created_at' => now()
         ]);
 
-        // Gửi email
+        // Gửi email chứa link reset password
         try {
+            // Gửi email sử dụng ForgotPasswordMail class
             Mail::to($user->email)->send(new ForgotPasswordMail($user, $token));
             
+            // Nếu là AJAX request, trả về JSON response thành công
             if ($request->ajax()) {
                 return response()->json([
                     'success' => true,
@@ -226,10 +295,13 @@ class AuthController extends Controller
                 ]);
             }
             
+            // Nếu không phải AJAX, quay lại với thông báo thành công
             return back()->with('success', 'Email đặt lại mật khẩu đã được gửi! Vui lòng kiểm tra hộp thư.');
         } catch (\Exception $e) {
+            // Nếu có lỗi khi gửi email, ghi log lỗi
             Log::error('Email error: ' . $e->getMessage());
             
+            // Nếu là AJAX request, trả về JSON response lỗi
             if ($request->ajax()) {
                 return response()->json([
                     'success' => false,
@@ -238,12 +310,17 @@ class AuthController extends Controller
                 ]);
             }
             
+            // Nếu không phải AJAX, quay lại với thông báo lỗi
             return back()->withErrors(['email' => 'Không thể gửi email. Vui lòng thử lại sau!']);
         }
     }
 
     /**
      * Hiển thị form reset password
+     * Kiểm tra token hợp lệ và hiển thị form đặt lại mật khẩu
+     * 
+     * @param Request $request - HTTP request chứa token và email từ URL query
+     * @return \Illuminate\View\View|\Illuminate\Http\RedirectResponse
      */
     public function showResetPassword(Request $request)
     {

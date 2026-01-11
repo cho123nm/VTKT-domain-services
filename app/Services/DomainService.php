@@ -1,69 +1,85 @@
 <?php
-
+// Khai báo namespace cho Service này - thuộc App\Services
 namespace App\Services;
 
-use App\Models\Domain;
-use App\Models\History;
-use App\Models\User;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
+// Import các Model và Facade cần thiết
+use App\Models\Domain; // Model quản lý thông tin domain
+use App\Models\History; // Model lưu lịch sử mua domain
+use App\Models\User; // Model quản lý người dùng
+use Illuminate\Support\Facades\DB; // Facade để thao tác database
+use Illuminate\Support\Facades\Log; // Facade để ghi log
 
+/**
+ * Class DomainService
+ * Service xử lý logic liên quan đến domain: kiểm tra tính khả dụng, tính giá, mua domain
+ */
 class DomainService
 {
+    // Thuộc tính lưu trữ instance của TelegramService
     protected $telegramService;
 
+    /**
+     * Hàm khởi tạo (Constructor)
+     * Dependency Injection: Laravel tự động inject TelegramService vào đây
+     * 
+     * @param TelegramService $telegramService - Service để gửi thông báo Telegram
+     */
     public function __construct(TelegramService $telegramService)
     {
+        // Gán TelegramService vào thuộc tính của class
         $this->telegramService = $telegramService;
     }
 
     /**
-     * Check if domain is available
+     * Kiểm tra domain có sẵn không (chưa được mua trong hệ thống)
      * 
-     * @param string $domainName (without extension)
-     * @param string $extension (e.g., .com, .net)
-     * @return bool
+     * @param string $domainName - Tên domain (không có đuôi, ví dụ: "example")
+     * @param string $extension - Đuôi domain (ví dụ: ".com", ".net")
+     * @return bool - True nếu domain sẵn sàng, False nếu đã được mua
      */
     public function checkAvailability(string $domainName, string $extension): bool
     {
-        // Combine domain name and extension
+        // Kết hợp tên domain và đuôi thành domain đầy đủ (ví dụ: "example.com")
         $fullDomain = $domainName . $extension;
 
-        // Check if domain already exists in history table
+        // Kiểm tra domain đã tồn tại trong bảng history chưa (đã được mua chưa)
         $existingDomain = History::where('domain', $fullDomain)->first();
 
+        // Trả về true nếu không tìm thấy (domain sẵn sàng), false nếu đã tồn tại
         return $existingDomain === null;
     }
 
     /**
-     * Calculate price for domain extension
+     * Tính giá cho đuôi domain
      * 
-     * @param string $extension (e.g., .com, .net)
-     * @return int|null Price in VND, or null if extension not found
+     * @param string $extension - Đuôi domain (ví dụ: ".com", ".net")
+     * @return int|null - Giá tiền (VND) hoặc null nếu không tìm thấy đuôi domain
      */
     public function calculatePrice(string $extension): ?int
     {
-        // Remove leading dot if present
+        // Loại bỏ dấu chấm ở đầu nếu có (ví dụ: ".com" -> "com")
         $extension = ltrim($extension, '.');
 
-        // Find domain type by extension
+        // Tìm loại domain theo đuôi trong database
         $domainType = Domain::where('duoi', $extension)->first();
 
+        // Nếu không tìm thấy, trả về null
         if (!$domainType) {
             return null;
         }
 
+        // Trả về giá tiền (ép kiểu về int)
         return (int)$domainType->price;
     }
 
     /**
-     * Purchase domain - handle complete domain purchase logic
+     * Mua domain - xử lý logic mua domain hoàn chỉnh
      * 
-     * @param int $userId
-     * @param string $domainName (without extension)
-     * @param string $extension (e.g., .com, .net)
-     * @param string $ns1
-     * @param string $ns2
+     * @param int $userId - ID người dùng mua domain
+     * @param string $domainName - Tên domain (không có đuôi, ví dụ: "example")
+     * @param string $extension - Đuôi domain (ví dụ: ".com", ".net")
+     * @param string $ns1 - Nameserver 1
+     * @param string $ns2 - Nameserver 2
      * @return array ['success' => bool, 'message' => string, 'order' => History|null]
      */
     public function purchaseDomain(int $userId, string $domainName, string $extension, string $ns1, string $ns2): array
