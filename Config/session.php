@@ -30,7 +30,7 @@ return [
 
     'path' => '/', // Path của cookie (mặc định: / - toàn bộ domain)
 
-    'domain' => env('SESSION_DOMAIN'), // Domain của cookie (null = domain hiện tại)
+    'domain' => env('SESSION_DOMAIN') ?: null, // Domain của cookie (null = domain hiện tại)
 
     'secure' => env('SESSION_SECURE_COOKIE'), // Cookie chỉ gửi qua HTTPS không (true/false/null)
 

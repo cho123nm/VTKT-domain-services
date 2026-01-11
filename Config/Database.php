@@ -29,7 +29,7 @@ return [
             'engine' => null, // Database engine (null = mặc định của MySQL)
             'options' => extension_loaded('pdo_mysql') ? array_filter([
                 // Các tùy chọn PDO MySQL (chỉ thêm nếu extension pdo_mysql được load)
-                PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'), // SSL CA certificate (nếu có)
+                PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA') ?: null, // SSL CA certificate (nếu có)
             ]) : [], // Nếu không có pdo_mysql extension, dùng mảng rỗng
         ],
 

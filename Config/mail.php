@@ -40,7 +40,7 @@ return [
             'username' => env('MAIL_USERNAME'), // SMTP username
             'password' => env('MAIL_PASSWORD'), // SMTP password
             'timeout' => null, // Timeout (null = không giới hạn)
-            'local_domain' => env('MAIL_EHLO_DOMAIN'), // Domain cho EHLO command
+            'local_domain' => env('MAIL_EHLO_DOMAIN') ?: null, // Domain cho EHLO command
         ],
 
         // Cấu hình Amazon SES mailer

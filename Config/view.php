@@ -20,10 +20,7 @@ return [
     | Thư mục lưu các view đã được compile (Blade -> PHP)
     */
 
-    'compiled' => env(
-        'VIEW_COMPILED_PATH', // Đường dẫn compiled views từ .env (nếu có)
-        realpath(storage_path('framework/views')) // Mặc định: storage/framework/views (realpath để lấy đường dẫn tuyệt đối)
-    ),
+    'compiled' => env('VIEW_COMPILED_PATH') ?: realpath(storage_path('framework/views')), // Đường dẫn compiled views từ .env (nếu có) hoặc mặc định: storage/framework/views
 
 ];
 

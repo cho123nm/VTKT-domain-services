@@ -42,7 +42,7 @@ return [
 
     'url' => env('APP_URL', 'http://localhost'), // URL ứng dụng (từ .env hoặc mặc định: http://localhost)
 
-    'asset_url' => env('ASSET_URL'), // URL cho assets (CSS, JS, images) nếu khác với APP_URL
+    'asset_url' => env('ASSET_URL') ?: null, // URL cho assets (CSS, JS, images) nếu khác với APP_URL
 
     /*
     |--------------------------------------------------------------------------
