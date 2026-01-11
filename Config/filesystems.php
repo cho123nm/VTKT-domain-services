@@ -19,7 +19,7 @@ return [
         'public' => [
             'driver' => 'local', // Driver: local (lưu trên server)
             'root' => storage_path('app/public'), // Thư mục gốc: storage/app/public
-            'url' => env('APP_URL').'/storage', // URL để truy cập file: APP_URL/storage
+            'url' => (env('APP_URL') ?: 'http://localhost').'/storage', // URL để truy cập file: APP_URL/storage
             'visibility' => 'public', // Visibility: public (công khai)
             'throw' => false, // Có throw exception khi lỗi không (false = không throw)
         ],

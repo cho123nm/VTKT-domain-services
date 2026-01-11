@@ -25,7 +25,7 @@ return [
     // Cấu hình CardVIP (cổng nạp thẻ)
     'cardvip' => [
         'api_key' => env('CARDVIP_API_KEY', ''), // CardVIP API key (mặc định: chuỗi rỗng)
-        'callback' => env('CARDVIP_CALLBACK', env('APP_URL', 'http://localhost') . '/callback'), // Callback URL (mặc định: APP_URL/callback)
+        'callback' => env('CARDVIP_CALLBACK') ?: (env('APP_URL') ?: 'http://localhost') . '/callback', // Callback URL (mặc định: APP_URL/callback)
     ],
 
     // Cấu hình Telegram Bot
