@@ -5,6 +5,7 @@ namespace App\Providers;
 // Import ServiceProvider base class và các Facade, Model cần thiết
 use Illuminate\Support\ServiceProvider; // Base class cho service provider
 use Illuminate\Support\Facades\View; // Facade để chia sẻ dữ liệu với views
+use Illuminate\Support\Str; // Str helper class
 use App\Models\Settings; // Model quản lý cài đặt hệ thống
 use App\Models\User; // Model quản lý người dùng
 use App\Models\Feedback; // Model quản lý feedback
@@ -36,7 +37,8 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         // Force HTTPS nếu APP_URL là https
-        if (env('APP_URL', '')->startsWith('https://')) {
+        $appUrl = env('APP_URL', '');
+        if ($appUrl && Str::startsWith($appUrl, 'https://')) {
             \URL::forceScheme('https');
             if (!request()->secure() && !request()->header('X-Forwarded-Proto')) {
                 request()->server->set('HTTPS', 'on');
