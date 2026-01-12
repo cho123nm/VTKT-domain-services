@@ -35,9 +35,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        // Force HTTPS nếu không phải local environment
-        if (env('APP_ENV') !== 'local' && !request()->secure() && env('APP_URL', '')->startsWith('https://')) {
+        // Force HTTPS nếu APP_URL là https
+        if (env('APP_URL', '')->startsWith('https://')) {
             \URL::forceScheme('https');
+            if (!request()->secure() && !request()->header('X-Forwarded-Proto')) {
+                request()->server->set('HTTPS', 'on');
+            }
         }
         
         // Chia sẻ settings và thông tin user với tất cả views
