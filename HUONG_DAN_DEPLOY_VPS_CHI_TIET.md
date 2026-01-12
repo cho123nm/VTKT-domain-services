@@ -503,5 +503,5 @@ Sau khi hoàn thành các bước trên:
 - ✅ Admin panel: `http://103.157.204.120:8000/admin/login`
 - ✅ phpMyAdmin: `http://103.157.204.120:8080`
 
-**Bước tiếp theo:** Gắn domain `vtkt.online` (xem file `HUONG_DAN_DNS_TENTEN.md`)
+**Bước tiếp theo:** Gắn domain về VPS (xem file `HUONG_DAN_TRO_DOMAIN_VE_VPS.md`)
 

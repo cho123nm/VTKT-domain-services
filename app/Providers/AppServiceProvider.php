@@ -35,6 +35,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Force HTTPS nếu không phải local environment
+        if (env('APP_ENV') !== 'local' && !request()->secure() && env('APP_URL', '')->startsWith('https://')) {
+            \URL::forceScheme('https');
+        }
+        
         // Chia sẻ settings và thông tin user với tất cả views
         // View::composer('*') nghĩa là áp dụng cho tất cả views
         View::composer('*', function ($view) {

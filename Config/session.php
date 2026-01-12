@@ -32,7 +32,7 @@ return [
 
     'domain' => env('SESSION_DOMAIN') ?: null, // Domain của cookie (null = domain hiện tại)
 
-    'secure' => env('SESSION_SECURE_COOKIE'), // Cookie chỉ gửi qua HTTPS không (true/false/null)
+    'secure' => env('SESSION_SECURE_COOKIE', true), // Cookie chỉ gửi qua HTTPS không (true/false/null)
 
     'http_only' => true, // Cookie chỉ accessible qua HTTP không (true = không thể truy cập qua JavaScript)
 
