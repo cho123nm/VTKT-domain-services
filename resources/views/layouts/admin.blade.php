@@ -20,6 +20,12 @@
     
     <!-- Responsive CSS for Admin -->
     <style>
+        /* Prevent horizontal overflow */
+        html, body {
+            overflow-x: hidden;
+            max-width: 100%;
+        }
+        
         /* Mobile First - Admin Responsive */
         @media (max-width: 575.98px) {
             .grid {
@@ -30,42 +36,240 @@
                 grid-column: span 12 / span 12;
             }
             
-            .table {
-                font-size: 0.75rem;
+            /* Fix sidebar on mobile */
+            .side-nav {
+                transform: translateX(-100%);
+                transition: transform 0.3s ease;
             }
             
-            .btn {
-                width: 100%;
+            .side-nav.mobile-menu-open {
+                transform: translateX(0);
+            }
+            
+            /* Top bar responsive */
+            .top-bar {
+                padding: 0.75rem 1rem;
+                flex-wrap: wrap;
+            }
+            
+            .breadcrumb {
+                font-size: 0.75rem;
                 margin-bottom: 0.5rem;
             }
             
-            .intro-y {
-                flex-direction: column;
-                align-items: flex-start !important;
+            .intro-x {
+                margin-right: 0.5rem;
             }
             
-            .intro-y .btn {
-                width: 100%;
-                margin-top: 0.5rem;
+            /* Content area */
+            .content {
+                padding: 1rem 0.75rem;
             }
-        }
-        
-        @media (max-width: 767.98px) {
-            .table-responsive {
+            
+            /* Tables */
+            .table {
+                font-size: 0.75rem;
                 display: block;
                 width: 100%;
                 overflow-x: auto;
                 -webkit-overflow-scrolling: touch;
             }
             
+            .table thead,
+            .table tbody,
+            .table tr {
+                display: block;
+                width: 100%;
+            }
+            
+            .table td,
+            .table th {
+                display: block;
+                width: 100%;
+                text-align: left;
+                padding: 0.5rem;
+                border-bottom: 1px solid #e5e7eb;
+            }
+            
+            .table th {
+                font-weight: 600;
+                background-color: #f9fafb;
+            }
+            
+            /* Buttons */
+            .btn {
+                width: 100%;
+                margin-bottom: 0.5rem;
+                padding: 0.5rem 1rem;
+                font-size: 0.875rem;
+            }
+            
+            .btn-group {
+                flex-direction: column;
+                width: 100%;
+            }
+            
+            .btn-group .btn {
+                margin-bottom: 0.5rem;
+            }
+            
+            /* Forms */
+            .form-control,
+            .form-select {
+                width: 100%;
+                font-size: 0.875rem;
+                padding: 0.5rem;
+            }
+            
+            /* Cards and boxes */
+            .box {
+                padding: 1rem !important;
+            }
+            
+            .report-box {
+                margin-bottom: 1rem;
+            }
+            
+            .report-box__icon {
+                width: 2rem;
+                height: 2rem;
+            }
+            
+            /* Intro sections */
+            .intro-y {
+                flex-direction: column;
+                align-items: flex-start !important;
+                gap: 0.75rem;
+            }
+            
+            .intro-y h2 {
+                font-size: 1rem;
+                margin-bottom: 0.5rem;
+            }
+            
+            .intro-y .btn {
+                width: 100%;
+                margin-top: 0.5rem;
+            }
+            
+            /* Grid columns */
+            .col-span-12.sm\:col-span-6,
+            .col-span-12.xl\:col-span-3 {
+                grid-column: span 12 / span 12;
+            }
+            
+            /* Dropdown menus */
+            .dropdown-menu {
+                width: 100% !important;
+                max-width: 100%;
+                left: 0 !important;
+                right: 0 !important;
+            }
+            
+            /* Search */
+            .search {
+                width: 100%;
+            }
+            
+            .search__input {
+                width: 100%;
+            }
+            
+            /* Mobile menu */
+            .mobile-menu-bar {
+                padding: 0.75rem 1rem;
+            }
+            
+            /* Fix any overflow */
+            * {
+                max-width: 100%;
+            }
+            
+            .content > * {
+                max-width: 100%;
+            }
+        }
+        
+        @media (max-width: 767.98px) {
+            /* Table responsive wrapper */
+            .table-responsive {
+                display: block;
+                width: 100%;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                -ms-overflow-style: -ms-autohiding-scrollbar;
+            }
+            
+            .table-responsive table {
+                min-width: 600px;
+            }
+            
+            /* Card body */
             .card-body {
                 padding: 1rem;
+            }
+            
+            /* Top bar adjustments */
+            .top-bar {
+                flex-wrap: wrap;
+            }
+            
+            .breadcrumb {
+                width: 100%;
+                margin-bottom: 0.5rem;
+            }
+            
+            /* Content padding */
+            .content {
+                padding: 1rem;
+            }
+            
+            /* Grid adjustments */
+            .grid {
+                gap: 1rem;
+            }
+        }
+        
+        @media (max-width: 1024px) {
+            /* Sidebar adjustments */
+            .side-nav {
+                width: 100%;
+                max-width: 280px;
+            }
+            
+            /* Content adjustments */
+            .content {
+                width: 100%;
             }
         }
         
         /* Ensure tables are scrollable */
         .overflow-auto {
             -webkit-overflow-scrolling: touch;
+            overflow-x: auto;
+        }
+        
+        /* Fix any potential horizontal scroll */
+        .flex {
+            flex-wrap: wrap;
+        }
+        
+        /* Responsive images */
+        img {
+            max-width: 100%;
+            height: auto;
+        }
+        
+        /* Fix modals on mobile */
+        @media (max-width: 575.98px) {
+            .modal-dialog {
+                margin: 0.5rem;
+                max-width: calc(100% - 1rem);
+            }
+            
+            .modal-content {
+                padding: 1rem;
+            }
         }
     </style>
     

@@ -484,6 +484,15 @@
             box-sizing: border-box;
         }
         
+        /* Fix overflow issues */
+        .login-box {
+            overflow-x: hidden;
+        }
+        
+        .login-card {
+            overflow-x: hidden;
+        }
+        
         .btn-login::before {
             content: '';
             position: absolute;
@@ -570,16 +579,27 @@
             
             .login-card {
                 padding: 32px 24px;
+                max-width: 100%;
             }
             
             .logo-title {
                 font-size: 24px;
             }
             
+            /* Fix form container for mobile */
+            #adminLoginForm {
+                margin-left: 0;
+                padding-left: 0;
+                width: 100%;
+                max-width: 100%;
+            }
+            
             .input-group {
                 flex-direction: column;
                 align-items: flex-start;
                 gap: 8px;
+                width: 100%;
+                margin-bottom: 20px;
             }
             
             .input-label {
@@ -590,12 +610,19 @@
             
             .input-wrapper {
                 width: 100%;
+                max-width: 100%;
+            }
+            
+            .input-field {
+                width: 100%;
+                max-width: 100%;
             }
             
             .btn-wrapper {
                 flex-direction: column;
                 align-items: flex-start;
                 gap: 8px;
+                width: 100%;
             }
             
             .btn-spacer {
@@ -603,6 +630,10 @@
             }
             
             .btn-container {
+                width: 100%;
+            }
+            
+            .btn-login {
                 width: 100%;
             }
         }
@@ -615,6 +646,14 @@
             .login-card {
                 padding: 24px 16px;
                 border-radius: 16px;
+                max-width: 100%;
+                margin: 0 auto;
+            }
+            
+            .login-box {
+                width: 100%;
+                max-width: 100%;
+                padding: 0;
             }
             
             .logo-image {
@@ -628,6 +667,27 @@
             
             .logo-subtitle {
                 font-size: 12px;
+            }
+            
+            /* Ensure no horizontal overflow */
+            body {
+                overflow-x: hidden;
+            }
+            
+            .login-container {
+                overflow-x: hidden;
+            }
+            
+            /* Fix any potential overflow */
+            * {
+                max-width: 100%;
+            }
+            
+            .input-field,
+            .btn-login,
+            .alert {
+                max-width: 100%;
+                box-sizing: border-box;
             }
         }
     </style>
