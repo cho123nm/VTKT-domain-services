@@ -139,6 +139,21 @@ class TelegramWebhookController extends Controller
             return;
         }
         
+        // Nếu là admin, kiểm tra các lệnh đặc biệt
+        if ($chatId == $adminChatId) {
+            // Xử lý lệnh cộng tiền: congtien:username:amount
+            if (preg_match('/^congtien:([^:]+):(\d+)$/i', $text, $matches)) {
+                $this->processAddBalance($chatId, $matches[1], $matches[2]);
+                return;
+            }
+            
+            // Xử lý lệnh cập nhật DNS: updatedns:domain:ns1:ns2
+            if (preg_match('/^updatedns:([^:]+):([^:]+):([^:]+)$/i', $text, $matches)) {
+                $this->processUpdateDNS($chatId, $matches[1], $matches[2], $matches[3]);
+                return;
+            }
+        }
+        
         // Nếu là admin nhưng gửi tin nhắn không phải lệnh, không xử lý
         Log::info('Admin sent non-command message', ['chat_id' => $chatId, 'text' => $text]);
     }
@@ -159,13 +174,34 @@ class TelegramWebhookController extends Controller
             $adminChatId = $settings->telegram_admin_chat_id;
         }
         
-        // Nếu là admin, gửi thông báo khác
+        // Nếu là admin, hiển thị menu chính
         if ($chatId == $adminChatId) {
-            $message = "👋 Chào mừng Admin!\n\n" .
-                       "Bot này dùng để nhận thông báo về:\n" .
-                       "• Feedback mới từ khách hàng\n" .
-                       "• Đơn hàng mới\n\n" .
-                       "Bạn sẽ nhận được thông báo tự động khi có feedback hoặc đơn hàng mới.";
+            $message = "👋 <b>CHÀO MỪNG ADMIN!</b>\n\n" .
+                       "Chọn chức năng bạn muốn sử dụng:";
+            
+            // Tạo menu với inline keyboard
+            $menuKeyboard = [
+                'inline_keyboard' => [
+                    [
+                        ['text' => '📋 Feedback chờ xử lý', 'callback_data' => 'menu_pending_feedback'],
+                        ['text' => '✅ Feedback đã xử lý', 'callback_data' => 'menu_processed_feedback']
+                    ],
+                    [
+                        ['text' => '📊 Thống kê tài khoản', 'callback_data' => 'menu_user_stats'],
+                        ['text' => '💰 Cộng tiền cho TK', 'callback_data' => 'menu_add_balance']
+                    ],
+                    [
+                        ['text' => '🌐 Cập nhật DNS', 'callback_data' => 'menu_update_dns'],
+                        ['text' => '📦 Đơn hàng mới', 'callback_data' => 'menu_new_orders']
+                    ],
+                    [
+                        ['text' => 'ℹ️ Trợ giúp', 'callback_data' => 'menu_help']
+                    ]
+                ]
+            ];
+            
+            $this->telegramService->sendMessage($chatId, $message, 'HTML', $menuKeyboard);
+            return;
         } else {
             // Nếu không phải admin, thông báo bot chỉ dùng để admin nhận thông báo
             $message = "ℹ️ <b>Thông báo</b>\n\n" .
@@ -379,6 +415,36 @@ class TelegramWebhookController extends Controller
             return;
         }
 
+        // Xử lý các menu item
+        if ($data === 'menu_pending_feedback') {
+            $this->handlePendingFeedback($chatId, $callbackQueryId, $message);
+            return;
+        } elseif ($data === 'menu_processed_feedback') {
+            $this->handleProcessedFeedback($chatId, $callbackQueryId, $message);
+            return;
+        } elseif ($data === 'menu_user_stats') {
+            $this->handleUserStats($chatId, $callbackQueryId, $message);
+            return;
+        } elseif ($data === 'menu_add_balance') {
+            $this->handleAddBalance($chatId, $callbackQueryId, $message);
+            return;
+        } elseif ($data === 'menu_update_dns') {
+            $this->handleUpdateDNS($chatId, $callbackQueryId, $message);
+            return;
+        } elseif ($data === 'menu_new_orders') {
+            $this->handleNewOrders($chatId, $callbackQueryId, $message);
+            return;
+        } elseif ($data === 'menu_help') {
+            $this->handleHelpCommand($chatId);
+            $this->telegramService->answerCallbackQuery($callbackQueryId, 'Đã hiển thị hướng dẫn');
+            return;
+        } elseif ($data === 'menu_back') {
+            // Quay về menu chính
+            $this->handleStartCommand($chatId);
+            $this->telegramService->answerCallbackQuery($callbackQueryId, 'Đã quay về menu chính');
+            return;
+        }
+        
         // Xử lý callback "Đã hỗ trợ" feedback
         if (strpos($data, 'feedback_done_') === 0) {
             $feedbackId = str_replace('feedback_done_', '', $data);
@@ -425,6 +491,321 @@ class TelegramWebhookController extends Controller
         } else {
             // Callback không được nhận diện
             $this->telegramService->answerCallbackQuery($callbackQueryId, 'Hành động không hợp lệ.');
+        }
+    }
+
+    /**
+     * Xử lý xem feedback chờ xử lý
+     */
+    protected function handlePendingFeedback(string $chatId, ?string $callbackQueryId, array $message): void
+    {
+        try {
+            $feedbacks = \App\Models\Feedback::where('status', 0)
+                ->orderBy('id', 'desc')
+                ->limit(10)
+                ->get();
+
+            if ($feedbacks->isEmpty()) {
+                $text = "✅ <b>KHÔNG CÓ FEEDBACK CHỜ XỬ LÝ</b>\n\nTất cả feedback đã được xử lý!";
+            } else {
+                $text = "📋 <b>FEEDBACK CHỜ XỬ LÝ</b> (" . $feedbacks->count() . ")\n\n";
+                foreach ($feedbacks as $feedback) {
+                    $text .= "🆔 <b>#{$feedback->id}</b>\n";
+                    $text .= "👤 <code>{$feedback->username}</code>\n";
+                    $text .= "📧 <code>{$feedback->email}</code>\n";
+                    $content = mb_substr($feedback->message, 0, 100);
+                    if (mb_strlen($feedback->message) > 100) $content .= '...';
+                    $text .= "📝 {$content}\n";
+                    $text .= "⏰ {$feedback->time}\n\n";
+                }
+            }
+
+            $keyboard = [
+                'inline_keyboard' => [
+                    [['text' => '🔄 Làm mới', 'callback_data' => 'menu_pending_feedback']],
+                    [['text' => '🏠 Về menu chính', 'callback_data' => 'menu_back']]
+                ]
+            ];
+
+            $messageId = $message['message_id'] ?? null;
+            if ($messageId) {
+                $this->telegramService->editMessageText($chatId, $messageId, $text, 'HTML', $keyboard);
+            } else {
+                $this->telegramService->sendMessage($chatId, $text, 'HTML', $keyboard);
+            }
+            if ($callbackQueryId) {
+                $this->telegramService->answerCallbackQuery($callbackQueryId, 'Đã tải danh sách feedback');
+            }
+        } catch (\Exception $e) {
+            Log::error('Error handling pending feedback', ['error' => $e->getMessage()]);
+            if ($callbackQueryId) {
+                $this->telegramService->answerCallbackQuery($callbackQueryId, '❌ Có lỗi xảy ra');
+            }
+        }
+    }
+
+    /**
+     * Xử lý xem feedback đã xử lý
+     */
+    protected function handleProcessedFeedback(string $chatId, ?string $callbackQueryId, array $message): void
+    {
+        try {
+            $feedbacks = \App\Models\Feedback::where('status', 1)
+                ->orderBy('id', 'desc')
+                ->limit(10)
+                ->get();
+
+            if ($feedbacks->isEmpty()) {
+                $text = "📭 <b>CHƯA CÓ FEEDBACK NÀO ĐÃ XỬ LÝ</b>";
+            } else {
+                $text = "✅ <b>FEEDBACK ĐÃ XỬ LÝ</b> (" . $feedbacks->count() . ")\n\n";
+                foreach ($feedbacks as $feedback) {
+                    $text .= "🆔 <b>#{$feedback->id}</b>\n";
+                    $text .= "👤 <code>{$feedback->username}</code>\n";
+                    $text .= "⏰ Xử lý: {$feedback->reply_time}\n\n";
+                }
+            }
+
+            $keyboard = [
+                'inline_keyboard' => [
+                    [['text' => '🔄 Làm mới', 'callback_data' => 'menu_processed_feedback']],
+                    [['text' => '🏠 Về menu chính', 'callback_data' => 'menu_back']]
+                ]
+            ];
+
+            $messageId = $message['message_id'] ?? null;
+            if ($messageId) {
+                $this->telegramService->editMessageText($chatId, $messageId, $text, 'HTML', $keyboard);
+            } else {
+                $this->telegramService->sendMessage($chatId, $text, 'HTML', $keyboard);
+            }
+            if ($callbackQueryId) {
+                $this->telegramService->answerCallbackQuery($callbackQueryId, 'Đã tải danh sách feedback');
+            }
+        } catch (\Exception $e) {
+            Log::error('Error handling processed feedback', ['error' => $e->getMessage()]);
+            if ($callbackQueryId) {
+                $this->telegramService->answerCallbackQuery($callbackQueryId, '❌ Có lỗi xảy ra');
+            }
+        }
+    }
+
+    /**
+     * Xử lý thống kê tài khoản
+     */
+    protected function handleUserStats(string $chatId, ?string $callbackQueryId, array $message): void
+    {
+        try {
+            $totalUsers = \App\Models\User::count();
+            $totalBalance = \App\Models\User::sum('tien');
+            $activeUsers = \App\Models\User::where('tien', '>', 0)->count();
+            $pendingFeedback = \App\Models\Feedback::where('status', 0)->count();
+
+            $text = "📊 <b>THỐNG KÊ HỆ THỐNG</b>\n\n";
+            $text .= "👥 Tổng tài khoản: <b>{$totalUsers}</b>\n";
+            $text .= "💰 Tổng số dư: <b>" . number_format($totalBalance, 0, ',', '.') . " VNĐ</b>\n";
+            $text .= "✅ Tài khoản có dư: <b>{$activeUsers}</b>\n";
+            $text .= "📋 Feedback chờ xử lý: <b>{$pendingFeedback}</b>\n";
+
+            $keyboard = [
+                'inline_keyboard' => [
+                    [['text' => '🔄 Làm mới', 'callback_data' => 'menu_user_stats']],
+                    [['text' => '🏠 Về menu chính', 'callback_data' => 'menu_back']]
+                ]
+            ];
+
+            $messageId = $message['message_id'] ?? null;
+            if ($messageId) {
+                $this->telegramService->editMessageText($chatId, $messageId, $text, 'HTML', $keyboard);
+            } else {
+                $this->telegramService->sendMessage($chatId, $text, 'HTML', $keyboard);
+            }
+            if ($callbackQueryId) {
+                $this->telegramService->answerCallbackQuery($callbackQueryId, 'Đã tải thống kê');
+            }
+        } catch (\Exception $e) {
+            Log::error('Error handling user stats', ['error' => $e->getMessage()]);
+            if ($callbackQueryId) {
+                $this->telegramService->answerCallbackQuery($callbackQueryId, '❌ Có lỗi xảy ra');
+            }
+        }
+    }
+
+    /**
+     * Xử lý cộng tiền cho tài khoản
+     */
+    protected function handleAddBalance(string $chatId, ?string $callbackQueryId, array $message): void
+    {
+        $text = "💰 <b>CỘNG TIỀN CHO TÀI KHOẢN</b>\n\n";
+        $text .= "Vui lòng nhập theo format:\n";
+        $text .= "<code>congtien:username:sotien</code>\n\n";
+        $text .= "Ví dụ:\n";
+        $text .= "<code>congtien:vu123:100000</code>\n\n";
+        $text .= "⚠️ Lưu ý: Chỉ nhập số tiền, không có dấu phẩy hoặc ký tự đặc biệt.";
+
+        $keyboard = [
+            'inline_keyboard' => [
+                [['text' => '🏠 Về menu chính', 'callback_data' => 'menu_back']]
+            ]
+        ];
+
+        $messageId = $message['message_id'] ?? null;
+        if ($messageId) {
+            $this->telegramService->editMessageText($chatId, $messageId, $text, 'HTML', $keyboard);
+        } else {
+            $this->telegramService->sendMessage($chatId, $text, 'HTML', $keyboard);
+        }
+        if ($callbackQueryId) {
+            $this->telegramService->answerCallbackQuery($callbackQueryId, 'Đã hiển thị hướng dẫn');
+        }
+    }
+
+    /**
+     * Xử lý cập nhật DNS
+     */
+    protected function handleUpdateDNS(string $chatId, ?string $callbackQueryId, array $message): void
+    {
+        $text = "🌐 <b>CẬP NHẬT DNS</b>\n\n";
+        $text .= "Vui lòng nhập theo format:\n";
+        $text .= "<code>updatedns:domain:ns1:ns2</code>\n\n";
+        $text .= "Ví dụ:\n";
+        $text .= "<code>updatedns:example.com:ns1.example.com:ns2.example.com</code>";
+
+        $keyboard = [
+            'inline_keyboard' => [
+                [['text' => '🏠 Về menu chính', 'callback_data' => 'menu_back']]
+            ]
+        ];
+
+        $messageId = $message['message_id'] ?? null;
+        if ($messageId) {
+            $this->telegramService->editMessageText($chatId, $messageId, $text, 'HTML', $keyboard);
+        } else {
+            $this->telegramService->sendMessage($chatId, $text, 'HTML', $keyboard);
+        }
+        if ($callbackQueryId) {
+            $this->telegramService->answerCallbackQuery($callbackQueryId, 'Đã hiển thị hướng dẫn');
+        }
+    }
+
+    /**
+     * Xử lý xem đơn hàng mới
+     */
+    protected function handleNewOrders(string $chatId, ?string $callbackQueryId, array $message): void
+    {
+        $text = "📦 <b>ĐƠN HÀNG MỚI</b>\n\n";
+        $text .= "Chức năng này đang được phát triển.\n";
+        $text .= "Bạn sẽ nhận được thông báo tự động khi có đơn hàng mới.";
+
+        $keyboard = [
+            'inline_keyboard' => [
+                [['text' => '🏠 Về menu chính', 'callback_data' => 'menu_back']]
+            ]
+        ];
+
+        $messageId = $message['message_id'] ?? null;
+        if ($messageId) {
+            $this->telegramService->editMessageText($chatId, $messageId, $text, 'HTML', $keyboard);
+        } else {
+            $this->telegramService->sendMessage($chatId, $text, 'HTML', $keyboard);
+        }
+        if ($callbackQueryId) {
+            $this->telegramService->answerCallbackQuery($callbackQueryId, 'Đã hiển thị thông tin');
+        }
+    }
+
+    /**
+     * Xử lý lệnh cộng tiền: congtien:username:amount
+     */
+    protected function processAddBalance(string $chatId, string $username, string $amount): void
+    {
+        try {
+            $user = \App\Models\User::findByUsername($username);
+            if (!$user) {
+                $this->telegramService->sendMessage($chatId, "❌ Không tìm thấy tài khoản: <code>{$username}</code>", 'HTML');
+                return;
+            }
+
+            $amountInt = (int)$amount;
+            if ($amountInt <= 0) {
+                $this->telegramService->sendMessage($chatId, "❌ Số tiền phải lớn hơn 0!", 'HTML');
+                return;
+            }
+
+            $oldBalance = $user->tien;
+            $user->incrementBalance($amountInt);
+            $newBalance = $user->tien;
+
+            $text = "✅ <b>CỘNG TIỀN THÀNH CÔNG</b>\n\n";
+            $text .= "👤 Tài khoản: <code>{$username}</code>\n";
+            $text .= "💰 Số tiền: <b>" . number_format($amountInt, 0, ',', '.') . " VNĐ</b>\n";
+            $text .= "📊 Số dư cũ: <b>" . number_format($oldBalance, 0, ',', '.') . " VNĐ</b>\n";
+            $text .= "📊 Số dư mới: <b>" . number_format($newBalance, 0, ',', '.') . " VNĐ</b>";
+
+            $keyboard = [
+                'inline_keyboard' => [
+                    [['text' => '🏠 Về menu chính', 'callback_data' => 'menu_back']]
+                ]
+            ];
+
+            $this->telegramService->sendMessage($chatId, $text, 'HTML', $keyboard);
+            
+            Log::info('Balance added via Telegram', [
+                'username' => $username,
+                'amount' => $amountInt,
+                'admin_chat_id' => $chatId
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error processing add balance', ['error' => $e->getMessage()]);
+            $this->telegramService->sendMessage($chatId, "❌ Có lỗi xảy ra: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Xử lý lệnh cập nhật DNS: updatedns:domain:ns1:ns2
+     */
+    protected function processUpdateDNS(string $chatId, string $domain, string $ns1, string $ns2): void
+    {
+        try {
+            $history = \App\Models\History::where('domain', $domain)->first();
+            if (!$history) {
+                $this->telegramService->sendMessage($chatId, "❌ Không tìm thấy domain: <code>{$domain}</code>", 'HTML');
+                return;
+            }
+
+            $oldNs1 = $history->ns1;
+            $oldNs2 = $history->ns2;
+
+            $history->ns1 = $ns1;
+            $history->ns2 = $ns2;
+            $history->ahihi = 0; // Đánh dấu đã cập nhật
+            $history->save();
+
+            $text = "✅ <b>CẬP NHẬT DNS THÀNH CÔNG</b>\n\n";
+            $text .= "🌐 Domain: <code>{$domain}</code>\n";
+            $text .= "📊 NS1 cũ: <code>{$oldNs1}</code>\n";
+            $text .= "📊 NS1 mới: <code>{$ns1}</code>\n";
+            $text .= "📊 NS2 cũ: <code>{$oldNs2}</code>\n";
+            $text .= "📊 NS2 mới: <code>{$ns2}</code>\n\n";
+            $text .= "⏰ DNS sẽ có hiệu lực sau 12-24h";
+
+            $keyboard = [
+                'inline_keyboard' => [
+                    [['text' => '🏠 Về menu chính', 'callback_data' => 'menu_back']]
+                ]
+            ];
+
+            $this->telegramService->sendMessage($chatId, $text, 'HTML', $keyboard);
+            
+            Log::info('DNS updated via Telegram', [
+                'domain' => $domain,
+                'ns1' => $ns1,
+                'ns2' => $ns2,
+                'admin_chat_id' => $chatId
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error processing update DNS', ['error' => $e->getMessage()]);
+            $this->telegramService->sendMessage($chatId, "❌ Có lỗi xảy ra: " . $e->getMessage());
         }
     }
 }

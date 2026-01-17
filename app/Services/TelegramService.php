@@ -184,9 +184,10 @@ class TelegramService
      * @param int $messageId - ID tin nhắn cần sửa
      * @param string $text - Nội dung mới
      * @param string $parseMode - Chế độ parse (mặc định: HTML)
+     * @param array|null $replyMarkup - Inline keyboard (tùy chọn)
      * @return array ['success' => bool, 'message' => string] - Kết quả
      */
-    public function editMessageText(string $chatId, int $messageId, string $text, string $parseMode = 'HTML'): array
+    public function editMessageText(string $chatId, int $messageId, string $text, string $parseMode = 'HTML', ?array $replyMarkup = null): array
     {
         if (empty($this->botToken)) {
             Log::warning('Telegram bot token not configured');
@@ -194,13 +195,19 @@ class TelegramService
         }
 
         try {
+            $data = [
+                'chat_id' => $chatId,
+                'message_id' => $messageId,
+                'text' => $text,
+                'parse_mode' => $parseMode
+            ];
+            
+            if ($replyMarkup !== null) {
+                $data['reply_markup'] = json_encode($replyMarkup);
+            }
+            
             $response = Http::timeout(10)
-                ->post("{$this->apiUrl}/editMessageText", [
-                    'chat_id' => $chatId,
-                    'message_id' => $messageId,
-                    'text' => $text,
-                    'parse_mode' => $parseMode
-                ]);
+                ->post("{$this->apiUrl}/editMessageText", $data);
 
             if ($response->successful()) {
                 $result = $response->json();
