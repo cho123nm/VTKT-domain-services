@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 use Illuminate\Console\Command; // Base class cho Artisan command
 use Illuminate\Support\Facades\Http; // Facade để gửi HTTP request
 use Illuminate\Support\Facades\Log; // Facade để ghi log
+use App\Models\Settings; // Model quản lý cài đặt hệ thống
 
 /**
  * Class SetTelegramWebhook
@@ -38,14 +39,19 @@ class SetTelegramWebhook extends Command
      */
     public function handle()
     {
-        // Lấy bot token từ config
-        $botToken = config('services.telegram.bot_token');
+        // Ưu tiên lấy bot token từ database (Settings), nếu không có thì lấy từ config
+        $settings = Settings::getOne();
+        if ($settings && !empty($settings->telegram_bot_token)) {
+            $botToken = $settings->telegram_bot_token;
+        } else {
+            $botToken = config('services.telegram.bot_token');
+        }
 
         // Kiểm tra bot token có được cấu hình chưa
         if (empty($botToken)) {
-            $this->error('Telegram bot token chưa được cấu hình trong file .env');
-            $this->info('Vui lòng set TELEGRAM_BOT_TOKEN trong file .env của bạn');
-            return 1; // Exit code 1 = lỗi
+            $this->error('Telegram bot token chưa được cấu hình');
+            $this->info('Vui lòng cấu hình Bot Token trong trang Cài Đặt Telegram');
+            return 1;
         }
 
         // Lấy webhook URL từ argument hoặc tự động tạo từ APP_URL
