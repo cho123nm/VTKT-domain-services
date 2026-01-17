@@ -574,7 +574,7 @@ class TelegramWebhookController extends Controller
             $this->showLoading($callbackQueryId, '⏳ Đang tải thống kê...');
             $this->handleUserStats($chatId, $callbackQueryId, $message);
             return;
-        } elseif ($data === 'menu_add_balance' || strpos($data, 'add_balance_user_') === 0 || strpos($data, 'add_balance_amount_') === 0) {
+        } elseif ($data === 'menu_add_balance' || strpos($data, 'add_balance_user_') === 0 || strpos($data, 'add_balance_amount_') === 0 || strpos($data, 'add_balance_page_') === 0) {
             if (strpos($data, 'add_balance_amount_') === 0) {
                 $this->showLoading($callbackQueryId, '⏳ Đang cộng tiền...');
             } else {
@@ -831,6 +831,56 @@ class TelegramWebhookController extends Controller
     protected function handleAddBalance(string $chatId, ?string $callbackQueryId, array $message, string $data = 'menu_add_balance'): void
     {
         try {
+            // Xử lý phân trang
+            if (strpos($data, 'add_balance_page_') === 0) {
+                $page = (int)str_replace('add_balance_page_', '', $data);
+                $perPage = 50;
+                $offset = ($page - 1) * $perPage;
+
+                $totalUsers = \App\Models\User::count();
+                $users = \App\Models\User::orderBy('id', 'desc')
+                    ->offset($offset)
+                    ->limit($perPage)
+                    ->get();
+
+                $text = "💰 <b>CỘNG TIỀN CHO TÀI KHOẢN</b>\n";
+                $text .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
+                $text .= "📊 Tổng số tài khoản: <b>{$totalUsers}</b>\n";
+                $text .= "📄 Trang: <b>{$page}/" . ceil($totalUsers / $perPage) . "</b>\n\n";
+                $text .= "Chọn tài khoản muốn cộng tiền:\n\n";
+
+                $keyboard = ['inline_keyboard' => []];
+                foreach ($users as $user) {
+                    $balance = number_format($user->tien, 0, ',', '.');
+                    $keyboard['inline_keyboard'][] = [
+                        ['text' => "👤 {$user->taikhoan} (💰 {$balance} VNĐ)", 'callback_data' => 'add_balance_user_' . $user->id]
+                    ];
+                }
+                
+                // Nút phân trang
+                $paginationRow = [];
+                if ($page > 1) {
+                    $paginationRow[] = ['text' => '⬅️ Trước', 'callback_data' => 'add_balance_page_' . ($page - 1)];
+                }
+                if ($page < ceil($totalUsers / $perPage)) {
+                    $paginationRow[] = ['text' => 'Tiếp ➡️', 'callback_data' => 'add_balance_page_' . ($page + 1)];
+                }
+                if (!empty($paginationRow)) {
+                    $keyboard['inline_keyboard'][] = $paginationRow;
+                }
+                
+                $keyboard['inline_keyboard'][] = [['text' => '🏠 Menu', 'callback_data' => 'menu_back']];
+
+                $messageId = $message['message_id'] ?? null;
+                if ($messageId) {
+                    $this->telegramService->editMessageText($chatId, $messageId, $text, 'HTML', $keyboard);
+                } else {
+                    $this->telegramService->sendMessage($chatId, $text, 'HTML', $keyboard);
+                }
+                $this->showSuccess($callbackQueryId, 'Đã tải danh sách tài khoản');
+                return;
+            }
+            
             // Nếu click vào user cụ thể
             if (strpos($data, 'add_balance_user_') === 0) {
                 $userId = str_replace('add_balance_user_', '', $data);
@@ -923,11 +973,21 @@ class TelegramWebhookController extends Controller
                 return;
             }
 
-            // Hiển thị danh sách tài khoản
-            $users = \App\Models\User::orderBy('id', 'desc')->limit(10)->get();
+            // Hiển thị danh sách tài khoản - phân trang nếu quá nhiều
+            $page = 1;
+            $perPage = 50; // Telegram cho phép tối đa 100 nút, nhưng để 50 để dễ nhìn
+            $offset = ($page - 1) * $perPage;
+
+            $totalUsers = \App\Models\User::count();
+            $users = \App\Models\User::orderBy('id', 'desc')
+                ->offset($offset)
+                ->limit($perPage)
+                ->get();
 
             $text = "💰 <b>CỘNG TIỀN CHO TÀI KHOẢN</b>\n";
             $text .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
+            $text .= "📊 Tổng số tài khoản: <b>{$totalUsers}</b>\n";
+            $text .= "📄 Trang: <b>{$page}/" . ceil($totalUsers / $perPage) . "</b>\n\n";
             $text .= "Chọn tài khoản muốn cộng tiền:\n\n";
 
             $keyboard = ['inline_keyboard' => []];
@@ -937,6 +997,19 @@ class TelegramWebhookController extends Controller
                     ['text' => "👤 {$user->taikhoan} (💰 {$balance} VNĐ)", 'callback_data' => 'add_balance_user_' . $user->id]
                 ];
             }
+            
+            // Nút phân trang
+            $paginationRow = [];
+            if ($page > 1) {
+                $paginationRow[] = ['text' => '⬅️ Trước', 'callback_data' => 'add_balance_page_' . ($page - 1)];
+            }
+            if ($page < ceil($totalUsers / $perPage)) {
+                $paginationRow[] = ['text' => 'Tiếp ➡️', 'callback_data' => 'add_balance_page_' . ($page + 1)];
+            }
+            if (!empty($paginationRow)) {
+                $keyboard['inline_keyboard'][] = $paginationRow;
+            }
+            
             $keyboard['inline_keyboard'][] = [['text' => '🏠 Menu', 'callback_data' => 'menu_back']];
 
             $messageId = $message['message_id'] ?? null;
