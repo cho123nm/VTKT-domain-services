@@ -5,6 +5,7 @@ namespace App\Services;
 // Import các Facade cần thiết
 use Illuminate\Support\Facades\Http; // Facade để gửi HTTP request
 use Illuminate\Support\Facades\Log; // Facade để ghi log
+use App\Models\Settings; // Model quản lý cài đặt hệ thống
 
 /**
  * Class TelegramService
@@ -22,15 +23,24 @@ class TelegramService
 
     /**
      * Hàm khởi tạo (Constructor)
-     * Lấy cấu hình từ config và tạo API URL
+     * Lấy cấu hình từ database (Settings) hoặc config và tạo API URL
      */
     public function __construct()
     {
-        // Lấy bot token từ config/services.php
-        $this->botToken = config('services.telegram.bot_token');
-        // Lấy admin chat ID từ config/services.php
-        $this->adminChatId = config('services.telegram.admin_chat_id');
-        // Tạo URL API Telegram (ví dụ: https://api.telegram.org/bot123456:ABC-DEF...)
+        // Ưu tiên lấy từ database (Settings), nếu không có thì lấy từ config
+        $settings = Settings::getOne();
+        if ($settings) {
+            // Lấy bot token từ database
+            $this->botToken = $settings->telegram_bot_token ?? '';
+            // Lấy admin chat ID từ database
+            $this->adminChatId = $settings->telegram_admin_chat_id ?? '';
+        } else {
+            // Nếu không có settings trong database, lấy từ config
+            $this->botToken = config('services.telegram.bot_token', '');
+            $this->adminChatId = config('services.telegram.admin_chat_id', '');
+        }
+        
+        // Tạo URL API Telegram
         $this->apiUrl = "https://api.telegram.org/bot{$this->botToken}";
     }
 
