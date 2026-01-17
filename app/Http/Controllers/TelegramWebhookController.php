@@ -574,7 +574,7 @@ class TelegramWebhookController extends Controller
         } elseif ($data === 'menu_add_balance' || strpos($data, 'add_balance_user_') === 0 || strpos($data, 'add_balance_amount_') === 0) {
             $this->handleAddBalance($chatId, $callbackQueryId, $message, $data);
             return;
-        } elseif ($data === 'menu_update_dns' || strpos($data, 'update_dns_') === 0) {
+        } elseif ($data === 'menu_update_dns' || strpos($data, 'update_dns_') === 0 || strpos($data, 'reject_dns_') === 0 || strpos($data, 'dns_update_') === 0 || strpos($data, 'dns_manual_') === 0) {
             $this->handleUpdateDNS($chatId, $callbackQueryId, $message, $data);
             return;
         } elseif ($data === 'menu_new_orders') {
@@ -953,8 +953,148 @@ class TelegramWebhookController extends Controller
     protected function handleUpdateDNS(string $chatId, ?string $callbackQueryId, array $message, string $data = 'menu_update_dns'): void
     {
         try {
+            // Xử lý từ chối yêu cầu DNS
+            if (strpos($data, 'reject_dns_') === 0) {
+                $domainId = str_replace('reject_dns_', '', $data);
+                $history = \App\Models\History::find($domainId);
+                if (!$history) {
+                    $this->telegramService->answerCallbackQuery($callbackQueryId, '❌ Không tìm thấy domain');
+                    return;
+                }
+
+                $history->ahihi = '0';
+                $history->status = '4'; // Từ chối
+                $history->save();
+
+                $text = "❌ <b>ĐÃ TỪ CHỐI YÊU CẦU CẬP NHẬT DNS</b>\n";
+                $text .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
+                $text .= "🌍 <b>Domain:</b> <code>" . $history->domain . "</code>\n";
+                $text .= "👤 <b>User:</b> <code>" . ($history->user ? $history->user->taikhoan : 'N/A') . "</code>\n";
+                $text .= "⏰ <b>Thời gian:</b> " . date('d/m/Y H:i:s') . "\n\n";
+                $text .= "✅ Yêu cầu đã được từ chối.";
+
+                $keyboard = [
+                    'inline_keyboard' => [
+                        [['text' => '🔄 Xem danh sách', 'callback_data' => 'menu_update_dns']],
+                        [['text' => '🏠 Menu', 'callback_data' => 'menu_back']]
+                    ]
+                ];
+
+                $messageId = $message['message_id'] ?? null;
+                if ($messageId) {
+                    $this->telegramService->editMessageText($chatId, $messageId, $text, 'HTML', $keyboard);
+                } else {
+                    $this->telegramService->sendMessage($chatId, $text, 'HTML', $keyboard);
+                }
+                if ($callbackQueryId) {
+                    $this->telegramService->answerCallbackQuery($callbackQueryId, '✅ Đã từ chối yêu cầu');
+                }
+
+                Log::info('DNS request rejected via Telegram', [
+                    'domain_id' => $domainId,
+                    'admin_chat_id' => $chatId
+                ]);
+                return;
+            }
+
+            // Xử lý cập nhật DNS với NS cụ thể
+            if (strpos($data, 'dns_update_') === 0) {
+                // Format: dns_update_{domainId}_{ns1}_{ns2}
+                $parts = explode('_', $data, 5);
+                if (count($parts) >= 5) {
+                    $domainId = $parts[2];
+                    $ns1 = urldecode($parts[3]);
+                    $ns2 = urldecode($parts[4]);
+                    
+                    $history = \App\Models\History::find($domainId);
+                    if (!$history) {
+                        $this->telegramService->answerCallbackQuery($callbackQueryId, '❌ Không tìm thấy domain');
+                        return;
+                    }
+
+                    $oldNs1 = $history->ns1;
+                    $oldNs2 = $history->ns2;
+
+                    $history->ns1 = $ns1;
+                    $history->ns2 = $ns2;
+                    $history->ahihi = '0';
+                    $history->status = '1'; // Đã duyệt
+                    $history->save();
+
+                    $text = "✅ <b>CẬP NHẬT DNS THÀNH CÔNG!</b>\n";
+                    $text .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
+                    $text .= "🌍 <b>Domain:</b> <code>" . $history->domain . "</code>\n";
+                    $text .= "👤 <b>User:</b> <code>" . ($history->user ? $history->user->taikhoan : 'N/A') . "</code>\n\n";
+                    $text .= "📊 <b>NS1 cũ:</b> <code>" . $oldNs1 . "</code>\n";
+                    $text .= "📊 <b>NS1 mới:</b> <code>" . $ns1 . "</code>\n";
+                    $text .= "📊 <b>NS2 cũ:</b> <code>" . $oldNs2 . "</code>\n";
+                    $text .= "📊 <b>NS2 mới:</b> <code>" . $ns2 . "</code>\n\n";
+                    $text .= "⏰ DNS sẽ có hiệu lực sau 12-24h";
+
+                    $keyboard = [
+                        'inline_keyboard' => [
+                            [['text' => '🔄 Xem danh sách', 'callback_data' => 'menu_update_dns']],
+                            [['text' => '🏠 Menu', 'callback_data' => 'menu_back']]
+                        ]
+                    ];
+
+                    $messageId = $message['message_id'] ?? null;
+                    if ($messageId) {
+                        $this->telegramService->editMessageText($chatId, $messageId, $text, 'HTML', $keyboard);
+                    } else {
+                        $this->telegramService->sendMessage($chatId, $text, 'HTML', $keyboard);
+                    }
+                    if ($callbackQueryId) {
+                        $this->telegramService->answerCallbackQuery($callbackQueryId, '✅ Đã cập nhật DNS thành công!');
+                    }
+
+                    Log::info('DNS updated via Telegram', [
+                        'domain_id' => $domainId,
+                        'ns1' => $ns1,
+                        'ns2' => $ns2,
+                        'admin_chat_id' => $chatId
+                    ]);
+                    return;
+                }
+            }
+
+            // Nếu click "Nhập tay"
+            if (strpos($data, 'dns_manual_') === 0) {
+                $domainId = str_replace('dns_manual_', '', $data);
+                $history = \App\Models\History::find($domainId);
+                if (!$history) {
+                    $this->telegramService->answerCallbackQuery($callbackQueryId, '❌ Không tìm thấy domain');
+                    return;
+                }
+
+                $text = "📝 <b>NHẬP DNS THỦ CÔNG</b>\n";
+                $text .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
+                $text .= "🌍 <b>Domain:</b> <code>" . $history->domain . "</code>\n\n";
+                $text .= "Nhập DNS mới theo format:\n";
+                $text .= "<code>updatedns:" . $history->domain . ":ns1:ns2</code>\n\n";
+                $text .= "Ví dụ:\n";
+                $text .= "<code>updatedns:" . $history->domain . ":ns1.example.com:ns2.example.com</code>";
+
+                $keyboard = [
+                    'inline_keyboard' => [
+                        [['text' => '⬅️ Quay lại', 'callback_data' => 'update_dns_' . $domainId]]
+                    ]
+                ];
+
+                $messageId = $message['message_id'] ?? null;
+                if ($messageId) {
+                    $this->telegramService->editMessageText($chatId, $messageId, $text, 'HTML', $keyboard);
+                } else {
+                    $this->telegramService->sendMessage($chatId, $text, 'HTML', $keyboard);
+                }
+                if ($callbackQueryId) {
+                    $this->telegramService->answerCallbackQuery($callbackQueryId, 'Nhập DNS mới');
+                }
+                return;
+            }
+
             // Nếu click vào domain cụ thể để cập nhật
-            if (strpos($data, 'update_dns_') === 0 && strpos($data, '_confirm_') === false) {
+            if (strpos($data, 'update_dns_') === 0) {
                 $domainId = str_replace('update_dns_', '', $data);
                 $history = \App\Models\History::find($domainId);
                 if (!$history) {
@@ -972,14 +1112,25 @@ class TelegramWebhookController extends Controller
                 $text .= "📊 <b>NS1 hiện tại:</b> <code>" . $history->ns1 . "</code>\n";
                 $text .= "📊 <b>NS2 hiện tại:</b> <code>" . $history->ns2 . "</code>\n\n";
                 $text .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
-                $text .= "Nhập DNS mới theo format:\n";
-                $text .= "<code>updatedns:" . $domain . ":ns1:ns2</code>\n\n";
-                $text .= "Ví dụ:\n";
-                $text .= "<code>updatedns:" . $domain . ":ns1.example.com:ns2.example.com</code>";
+                $text .= "Chọn DNS mới hoặc nhập tay:\n\n";
+                $text .= "Nhập theo format:\n";
+                $text .= "<code>updatedns:" . $domain . ":ns1:ns2</code>";
 
+                // Tạo keyboard với các NS phổ biến
                 $keyboard = [
                     'inline_keyboard' => [
-                        [['text' => '⬅️ Quay lại', 'callback_data' => 'menu_update_dns']]
+                        [
+                            ['text' => '🌐 Cloudflare', 'callback_data' => 'dns_update_' . $domainId . '_' . urlencode('ns1.cloudflare.com') . '_' . urlencode('ns2.cloudflare.com')]
+                        ],
+                        [
+                            ['text' => '☁️ Namecheap', 'callback_data' => 'dns_update_' . $domainId . '_' . urlencode('dns1.registrar-servers.com') . '_' . urlencode('dns2.registrar-servers.com')]
+                        ],
+                        [
+                            ['text' => '📝 Nhập tay', 'callback_data' => 'dns_manual_' . $domainId]
+                        ],
+                        [
+                            ['text' => '⬅️ Quay lại', 'callback_data' => 'menu_update_dns']
+                        ]
                     ]
                 ];
 
@@ -990,7 +1141,7 @@ class TelegramWebhookController extends Controller
                     $this->telegramService->sendMessage($chatId, $text, 'HTML', $keyboard);
                 }
                 if ($callbackQueryId) {
-                    $this->telegramService->answerCallbackQuery($callbackQueryId, 'Nhập DNS mới');
+                    $this->telegramService->answerCallbackQuery($callbackQueryId, 'Chọn DNS mới');
                 }
                 return;
             }
@@ -1013,7 +1164,7 @@ class TelegramWebhookController extends Controller
 
                 $keyboard = ['inline_keyboard' => []];
                 foreach ($domains as $domain) {
-                    $username = $domain->user->taikhoan ?? 'N/A';
+                    $username = $domain->user ? $domain->user->taikhoan : 'N/A';
                     $text .= "🌍 <b>Domain:</b> <code>{$domain->domain}</code>\n";
                     $text .= "👤 <b>User:</b> <code>{$username}</code>\n";
                     $text .= "📊 <b>NS1:</b> <code>{$domain->ns1}</code>\n";
@@ -1021,8 +1172,10 @@ class TelegramWebhookController extends Controller
                     $text .= "⏰ <b>Thời gian:</b> {$domain->time}\n";
                     $text .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
 
+                    // Thêm 2 nút: Cập nhật và Từ chối
                     $keyboard['inline_keyboard'][] = [
-                        ['text' => "🌐 Cập nhật {$domain->domain}", 'callback_data' => 'update_dns_' . $domain->id]
+                        ['text' => '✅ Cập nhật', 'callback_data' => 'update_dns_' . $domain->id],
+                        ['text' => '❌ Từ chối', 'callback_data' => 'reject_dns_' . $domain->id]
                     ];
                 }
                 $keyboard['inline_keyboard'][] = [['text' => '🏠 Menu', 'callback_data' => 'menu_back']];
