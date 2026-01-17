@@ -123,27 +123,60 @@ class TelegramWebhookController extends Controller
             return;
         }
 
-        // Xử lý tin nhắn feedback (không phải lệnh)
-        $this->processFeedbackMessage($chatId, $text, $from);
+        // Nếu không phải lệnh, thông báo bot chỉ dùng để admin nhận thông báo
+        $adminChatId = config('services.telegram.admin_chat_id');
+        $settings = \App\Models\Settings::getOne();
+        if ($settings && !empty($settings->telegram_admin_chat_id)) {
+            $adminChatId = $settings->telegram_admin_chat_id;
+        }
+        
+        // Chỉ admin mới có thể tương tác, user khác chỉ nhận thông báo
+        if ($chatId != $adminChatId) {
+            $message = "ℹ️ Bot này chỉ dùng để Admin nhận thông báo.\n\n" .
+                       "Để gửi phản hồi, vui lòng sử dụng form trên website:\n" .
+                       "https://vtkt.online/feedback";
+            $this->telegramService->sendMessage($chatId, $message);
+            return;
+        }
+        
+        // Nếu là admin nhưng gửi tin nhắn không phải lệnh, không xử lý
+        Log::info('Admin sent non-command message', ['chat_id' => $chatId, 'text' => $text]);
     }
 
     /**
      * Xử lý lệnh /start từ Telegram
-     * Gửi thông báo chào mừng và hướng dẫn gửi feedback
+     * Thông báo bot chỉ dùng để admin nhận thông báo
      * 
      * @param string $chatId - ID chat để gửi tin nhắn
      * @return void
      */
     protected function handleStartCommand(string $chatId): void
     {
-        // Tạo nội dung tin nhắn chào mừng và hướng dẫn
-        $message = "👋 Chào mừng bạn đến với hệ thống hỗ trợ!\n\n" .
-                   "Để gửi phản hồi, vui lòng nhập theo format:\n\n" .
-                   "📧 Email của bạn\n\n" .
-                   "❌ Mô tả lỗi/phản hồi\n\n" .
-                   "Ví dụ:\n" .
-                   "email@example.com\n\n" .
-                   "Tôi gặp lỗi khi thanh toán";
+        // Kiểm tra xem có phải admin không (so sánh với admin chat ID)
+        $adminChatId = config('services.telegram.admin_chat_id');
+        $settings = \App\Models\Settings::getOne();
+        if ($settings && !empty($settings->telegram_admin_chat_id)) {
+            $adminChatId = $settings->telegram_admin_chat_id;
+        }
+        
+        // Nếu là admin, gửi thông báo khác
+        if ($chatId == $adminChatId) {
+            $message = "👋 Chào mừng Admin!\n\n" .
+                       "Bot này dùng để nhận thông báo về:\n" .
+                       "• Feedback mới từ khách hàng\n" .
+                       "• Đơn hàng mới\n\n" .
+                       "Bạn sẽ nhận được thông báo tự động khi có feedback hoặc đơn hàng mới.";
+        } else {
+            // Nếu không phải admin, thông báo bot chỉ dùng để admin nhận thông báo
+            $message = "ℹ️ <b>Thông báo</b>\n\n" .
+                       "Bot này chỉ dùng để Admin nhận thông báo về feedback và đơn hàng.\n\n" .
+                       "Để gửi phản hồi, vui lòng sử dụng form trên website:\n" .
+                       "https://vtkt.online/feedback";
+
+            // Gửi tin nhắn qua TelegramService
+            $this->telegramService->sendMessage($chatId, $message);
+            return;
+        }
 
         // Gửi tin nhắn qua TelegramService
         $this->telegramService->sendMessage($chatId, $message);
@@ -151,21 +184,36 @@ class TelegramWebhookController extends Controller
 
     /**
      * Xử lý lệnh /help từ Telegram
-     * Gửi hướng dẫn chi tiết cách gửi feedback
+     * Gửi hướng dẫn
      * 
      * @param string $chatId - ID chat để gửi tin nhắn
      * @return void
      */
     protected function handleHelpCommand(string $chatId): void
     {
-        // Tạo nội dung tin nhắn hướng dẫn
-        $message = "📋 HƯỚNG DẪN GỬI PHẢN HỒI\n\n" .
-                   "1. Nhập email của bạn\n" .
-                   "2. Nhấn Enter\n" .
-                   "3. Nhập mô tả lỗi/phản hồi\n\n" .
-                   "Hoặc gửi theo format:\n\n" .
-                   "📧 Email\n\n" .
-                   "❌ Mô tả lỗi";
+        // Kiểm tra xem có phải admin không
+        $adminChatId = config('services.telegram.admin_chat_id');
+        $settings = \App\Models\Settings::getOne();
+        if ($settings && !empty($settings->telegram_admin_chat_id)) {
+            $adminChatId = $settings->telegram_admin_chat_id;
+        }
+        
+        if ($chatId == $adminChatId) {
+            $message = "📋 <b>HƯỚNG DẪN CHO ADMIN</b>\n\n" .
+                       "Bot này tự động gửi thông báo về:\n" .
+                       "• Feedback mới từ khách hàng\n" .
+                       "• Đơn hàng mới\n\n" .
+                       "Khi nhận được thông báo feedback, bạn có thể:\n" .
+                       "• Click nút '✅ Đã hỗ trợ' để đánh dấu đã xử lý\n" .
+                       "• Xem chi tiết trên Admin Panel";
+        } else {
+            $message = "📋 <b>HƯỚNG DẪN</b>\n\n" .
+                       "Bot này chỉ dùng để Admin nhận thông báo.\n\n" .
+                       "Để gửi phản hồi, vui lòng:\n" .
+                       "1. Truy cập: https://vtkt.online/feedback\n" .
+                       "2. Điền form phản hồi\n" .
+                       "3. Gửi phản hồi";
+        }
 
         // Gửi tin nhắn qua TelegramService
         $this->telegramService->sendMessage($chatId, $message);
@@ -296,18 +344,87 @@ class TelegramWebhookController extends Controller
     }
 
     /**
-     * Xử lý callback query từ Telegram (dùng trong tương lai)
-     * Callback query được gửi khi user click vào button inline
+     * Xử lý callback query từ Telegram
+     * Callback query được gửi khi admin click vào button inline (ví dụ: "Đã hỗ trợ")
      * 
      * @param array $callbackQuery - Mảng chứa thông tin callback query từ Telegram
      * @return void
      */
     protected function processCallbackQuery(array $callbackQuery): void
     {
-        // Xử lý callback query nếu cần trong tương lai
-        // Hiện tại chỉ ghi log để theo dõi
+        // Lấy thông tin từ callback query
+        $callbackQueryId = $callbackQuery['id'] ?? null; // ID callback query (dùng để answer)
+        $from = $callbackQuery['from'] ?? []; // Thông tin người click
+        $chatId = $from['id'] ?? null; // Chat ID của người click
+        $data = $callbackQuery['data'] ?? ''; // Data từ button (ví dụ: feedback_done_123)
+        $message = $callbackQuery['message'] ?? []; // Tin nhắn gốc chứa button
+
+        // Ghi log callback query
         Log::info('Telegram callback query received', [
-            'data' => $callbackQuery // Dữ liệu callback query
+            'chat_id' => $chatId,
+            'data' => $data,
+            'callback_query_id' => $callbackQueryId
         ]);
+
+        // Kiểm tra xem có phải admin không
+        $adminChatId = config('services.telegram.admin_chat_id');
+        $settings = \App\Models\Settings::getOne();
+        if ($settings && !empty($settings->telegram_admin_chat_id)) {
+            $adminChatId = $settings->telegram_admin_chat_id;
+        }
+
+        if ($chatId != $adminChatId) {
+            // Nếu không phải admin, trả lời lỗi
+            $this->telegramService->answerCallbackQuery($callbackQueryId, 'Chỉ admin mới có thể thực hiện hành động này.');
+            return;
+        }
+
+        // Xử lý callback "Đã hỗ trợ" feedback
+        if (strpos($data, 'feedback_done_') === 0) {
+            $feedbackId = str_replace('feedback_done_', '', $data);
+            
+            // Cập nhật status feedback trong database
+            try {
+                $feedback = \App\Models\Feedback::find($feedbackId);
+                if ($feedback) {
+                    $feedback->status = 1; // Đánh dấu đã xử lý
+                    $feedback->reply_time = date('d/m/Y - H:i:s'); // Thời gian xử lý
+                    $feedback->save();
+
+                    // Trả lời callback query thành công
+                    $this->telegramService->answerCallbackQuery($callbackQueryId, '✅ Đã đánh dấu feedback #' . $feedbackId . ' là đã hỗ trợ!');
+                    
+                    // Cập nhật tin nhắn để hiển thị đã xử lý
+                    $messageId = $message['message_id'] ?? null;
+                    if ($messageId) {
+                        $updatedText = $message['text'] ?? '';
+                        $updatedText .= "\n\n✅ <b>Đã xử lý</b> - " . date('d/m/Y H:i:s');
+                        
+                        // Cập nhật tin nhắn (xóa button)
+                        $this->telegramService->editMessageText(
+                            $chatId,
+                            $messageId,
+                            $updatedText
+                        );
+                    }
+
+                    Log::info('Feedback marked as done', [
+                        'feedback_id' => $feedbackId,
+                        'admin_chat_id' => $chatId
+                    ]);
+                } else {
+                    $this->telegramService->answerCallbackQuery($callbackQueryId, '❌ Không tìm thấy feedback này.');
+                }
+            } catch (\Exception $e) {
+                Log::error('Error processing feedback callback', [
+                    'error' => $e->getMessage(),
+                    'feedback_id' => $feedbackId
+                ]);
+                $this->telegramService->answerCallbackQuery($callbackQueryId, '❌ Có lỗi xảy ra khi xử lý.');
+            }
+        } else {
+            // Callback không được nhận diện
+            $this->telegramService->answerCallbackQuery($callbackQueryId, 'Hành động không hợp lệ.');
+        }
     }
 }

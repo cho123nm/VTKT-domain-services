@@ -110,7 +110,9 @@ class FeedbackController extends Controller
 
         // Gửi thông báo Telegram cho admin về feedback mới
         $this->telegramService->notifyNewFeedback([
+            'feedback_id' => $feedback->id, // ID feedback để tick xác nhận
             'username' => $user->taikhoan, // Username người gửi
+            'email' => $request->email, // Email người gửi
             'title' => 'Phản hồi từ khách hàng', // Tiêu đề
             'content' => $request->message, // Nội dung phản hồi
             'time' => $time // Thời gian

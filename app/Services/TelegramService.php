@@ -50,9 +50,10 @@ class TelegramService
      * @param string $chatId - ID của chat/người nhận (ví dụ: 123456789)
      * @param string $message - Nội dung tin nhắn
      * @param string $parseMode - Chế độ parse: 'HTML' hoặc 'Markdown' (mặc định: 'HTML')
+     * @param array|null $replyMarkup - Inline keyboard hoặc reply markup (tùy chọn)
      * @return array ['success' => bool, 'message' => string] - Kết quả gửi tin nhắn
      */
-    public function sendMessage(string $chatId, string $message, string $parseMode = 'HTML'): array
+    public function sendMessage(string $chatId, string $message, string $parseMode = 'HTML', ?array $replyMarkup = null): array
     {
         // Kiểm tra bot token đã được cấu hình chưa
         if (empty($this->botToken)) {
@@ -66,13 +67,21 @@ class TelegramService
 
         // Thử gửi tin nhắn qua Telegram API
         try {
+            // Chuẩn bị dữ liệu gửi
+            $data = [
+                'chat_id' => $chatId, // ID chat/người nhận
+                'text' => $message, // Nội dung tin nhắn
+                'parse_mode' => $parseMode // Chế độ parse: HTML hoặc Markdown
+            ];
+            
+            // Thêm reply markup nếu có (inline keyboard)
+            if ($replyMarkup !== null) {
+                $data['reply_markup'] = json_encode($replyMarkup);
+            }
+            
             // Gửi POST request đến Telegram API với timeout 10 giây
             $response = Http::timeout(10)
-                ->post("{$this->apiUrl}/sendMessage", [
-                    'chat_id' => $chatId, // ID chat/người nhận
-                    'text' => $message, // Nội dung tin nhắn
-                    'parse_mode' => $parseMode // Chế độ parse: HTML hoặc Markdown
-                ]);
+                ->post("{$this->apiUrl}/sendMessage", $data);
 
             // Kiểm tra response thành công (status code 200-299)
             if ($response->successful()) {
@@ -123,6 +132,100 @@ class TelegramService
     }
 
     /**
+     * Trả lời callback query từ Telegram
+     * 
+     * @param string $callbackQueryId - ID của callback query
+     * @param string $text - Nội dung trả lời (hiển thị như thông báo)
+     * @param bool $showAlert - Hiển thị alert hay notification (mặc định: false = notification)
+     * @return array ['success' => bool, 'message' => string] - Kết quả
+     */
+    public function answerCallbackQuery(string $callbackQueryId, string $text, bool $showAlert = false): array
+    {
+        if (empty($this->botToken)) {
+            Log::warning('Telegram bot token not configured');
+            return ['success' => false, 'message' => 'Telegram bot token not configured'];
+        }
+
+        try {
+            $response = Http::timeout(10)
+                ->post("{$this->apiUrl}/answerCallbackQuery", [
+                    'callback_query_id' => $callbackQueryId,
+                    'text' => $text,
+                    'show_alert' => $showAlert
+                ]);
+
+            if ($response->successful()) {
+                $result = $response->json();
+                if ($result['ok'] ?? false) {
+                    return ['success' => true, 'message' => 'Callback answered'];
+                }
+                Log::error('Telegram answerCallbackQuery error', ['result' => $result]);
+                return ['success' => false, 'message' => $result['description'] ?? 'Unknown error'];
+            }
+
+            Log::error('Telegram answerCallbackQuery HTTP error', [
+                'status' => $response->status(),
+                'body' => $response->body()
+            ]);
+            return ['success' => false, 'message' => 'HTTP error: ' . $response->status()];
+        } catch (\Exception $e) {
+            Log::error('Telegram answerCallbackQuery Exception', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return ['success' => false, 'message' => 'Exception: ' . $e->getMessage()];
+        }
+    }
+
+    /**
+     * Chỉnh sửa nội dung tin nhắn đã gửi
+     * 
+     * @param string $chatId - ID chat
+     * @param int $messageId - ID tin nhắn cần sửa
+     * @param string $text - Nội dung mới
+     * @param string $parseMode - Chế độ parse (mặc định: HTML)
+     * @return array ['success' => bool, 'message' => string] - Kết quả
+     */
+    public function editMessageText(string $chatId, int $messageId, string $text, string $parseMode = 'HTML'): array
+    {
+        if (empty($this->botToken)) {
+            Log::warning('Telegram bot token not configured');
+            return ['success' => false, 'message' => 'Telegram bot token not configured'];
+        }
+
+        try {
+            $response = Http::timeout(10)
+                ->post("{$this->apiUrl}/editMessageText", [
+                    'chat_id' => $chatId,
+                    'message_id' => $messageId,
+                    'text' => $text,
+                    'parse_mode' => $parseMode
+                ]);
+
+            if ($response->successful()) {
+                $result = $response->json();
+                if ($result['ok'] ?? false) {
+                    return ['success' => true, 'message' => 'Message edited'];
+                }
+                Log::error('Telegram editMessageText error', ['result' => $result]);
+                return ['success' => false, 'message' => $result['description'] ?? 'Unknown error'];
+            }
+
+            Log::error('Telegram editMessageText HTTP error', [
+                'status' => $response->status(),
+                'body' => $response->body()
+            ]);
+            return ['success' => false, 'message' => 'HTTP error: ' . $response->status()];
+        } catch (\Exception $e) {
+            Log::error('Telegram editMessageText Exception', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return ['success' => false, 'message' => 'Exception: ' . $e->getMessage()];
+        }
+    }
+
+    /**
      * Thông báo cho admin về đơn hàng mới
      * 
      * @param string $orderType - Loại đơn hàng: 'domain', 'hosting', 'vps', 'sourcecode'
@@ -151,7 +254,7 @@ class TelegramService
     /**
      * Thông báo cho admin về feedback mới
      * 
-     * @param array $feedbackDetails - Chi tiết feedback (username, title, content, time)
+     * @param array $feedbackDetails - Chi tiết feedback (feedback_id, username, email, title, content, time)
      * @return array ['success' => bool, 'message' => string] - Kết quả gửi thông báo
      */
     public function notifyNewFeedback(array $feedbackDetails): array
@@ -168,9 +271,25 @@ class TelegramService
 
         // Xây dựng nội dung tin nhắn feedback
         $message = $this->buildFeedbackMessage($feedbackDetails);
+        
+        // Tạo inline keyboard với nút "Đã hỗ trợ"
+        $feedbackId = $feedbackDetails['feedback_id'] ?? null;
+        $inlineKeyboard = null;
+        if ($feedbackId) {
+            $inlineKeyboard = [
+                'inline_keyboard' => [
+                    [
+                        [
+                            'text' => '✅ Đã hỗ trợ',
+                            'callback_data' => 'feedback_done_' . $feedbackId
+                        ]
+                    ]
+                ]
+            ];
+        }
 
-        // Gửi tin nhắn đến admin chat ID
-        return $this->sendMessage($this->adminChatId, $message);
+        // Gửi tin nhắn đến admin chat ID với inline keyboard
+        return $this->sendMessage($this->adminChatId, $message, 'HTML', $inlineKeyboard);
     }
 
     /**
@@ -263,20 +382,24 @@ class TelegramService
     protected function buildFeedbackMessage(array $feedbackDetails): string
     {
         // Lấy thông tin feedback từ mảng, mặc định 'N/A' nếu không có
+        $feedbackId = $feedbackDetails['feedback_id'] ?? 'N/A'; // ID feedback
         $username = $feedbackDetails['username'] ?? 'N/A'; // Username người gửi feedback
+        $email = $feedbackDetails['email'] ?? 'N/A'; // Email người gửi feedback
         $title = $feedbackDetails['title'] ?? 'N/A'; // Tiêu đề feedback
         $content = $feedbackDetails['content'] ?? 'N/A'; // Nội dung feedback
         $time = $feedbackDetails['time'] ?? date('d/m/Y - H:i:s'); // Thời gian (mặc định thời gian hiện tại)
 
         // Cắt ngắn nội dung nếu quá dài (Telegram có giới hạn độ dài tin nhắn)
-        if (strlen($content) > 200) {
-            // Chỉ lấy 200 ký tự đầu và thêm '...'
-            $content = substr($content, 0, 200) . '...';
+        if (strlen($content) > 300) {
+            // Chỉ lấy 300 ký tự đầu và thêm '...'
+            $content = substr($content, 0, 300) . '...';
         }
 
         // Trả về tin nhắn format HTML cho Telegram
         return "💬 <b>PHẢN HỒI MỚI</b>\n\n" .
-               "👤 Từ: <code>{$username}</code>\n" .
+               "🆔 ID: <code>#{$feedbackId}</code>\n" .
+               "👤 Tài khoản: <code>{$username}</code>\n" .
+               "📧 Email: <code>{$email}</code>\n" .
                "📌 Tiêu đề: <b>{$title}</b>\n" .
                "📝 Nội dung:\n{$content}\n\n" .
                "⏰ Thời gian: {$time}";
