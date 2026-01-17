@@ -289,6 +289,14 @@ class TelegramWebhookController extends Controller
                 $this->processUpdateDNS($chatId, $matches[1], $matches[2], $matches[3]);
                 return;
             }
+            
+            // Xử lý lệnh gửi phản hồi: reply:feedbackId:nội dung
+            if (preg_match('/^reply:(\d+):(.+)$/i', $text, $matches)) {
+                $feedbackId = $matches[1];
+                $replyText = $matches[2];
+                $this->processReplyFeedback($chatId, $feedbackId, $replyText);
+                return;
+            }
         }
         
         // Nếu là admin nhưng gửi tin nhắn không phải lệnh, không xử lý
@@ -562,9 +570,15 @@ class TelegramWebhookController extends Controller
         }
 
         // Xử lý các menu item
-        if ($data === 'menu_pending_feedback') {
-            $this->showLoading($callbackQueryId, '⏳ Đang tải feedback chờ xử lý...');
-            $this->handlePendingFeedback($chatId, $callbackQueryId, $message);
+        if ($data === 'menu_pending_feedback' || strpos($data, 'feedback_reply_') === 0 || strpos($data, 'feedback_mark_') === 0) {
+            if ($data === 'menu_pending_feedback') {
+                $this->showLoading($callbackQueryId, '⏳ Đang tải feedback chờ xử lý...');
+            } elseif (strpos($data, 'feedback_reply_') === 0) {
+                $this->showLoading($callbackQueryId, '⏳ Đang tải form phản hồi...');
+            } else {
+                $this->showLoading($callbackQueryId, '⏳ Đang xử lý...');
+            }
+            $this->handlePendingFeedback($chatId, $callbackQueryId, $message, $data);
             return;
         } elseif ($data === 'menu_processed_feedback') {
             $this->showLoading($callbackQueryId, '⏳ Đang tải feedback đã xử lý...');
@@ -662,9 +676,84 @@ class TelegramWebhookController extends Controller
     /**
      * Xử lý xem feedback chờ xử lý
      */
-    protected function handlePendingFeedback(string $chatId, ?string $callbackQueryId, array $message): void
+    protected function handlePendingFeedback(string $chatId, ?string $callbackQueryId, array $message, string $data = 'menu_pending_feedback'): void
     {
         try {
+            // Xử lý đánh dấu đã xử lý
+            if (strpos($data, 'feedback_mark_') === 0) {
+                $feedbackId = str_replace('feedback_mark_', '', $data);
+                $feedback = \App\Models\Feedback::find($feedbackId);
+                if (!$feedback) {
+                    $this->showError($callbackQueryId, 'Không tìm thấy feedback', true);
+                    return;
+                }
+
+                $feedback->status = 1;
+                $feedback->reply_time = date('d/m/Y - H:i:s');
+                $feedback->save();
+
+                $text = "✅ <b>ĐÃ ĐÁNH DẤU ĐÃ XỬ LÝ</b>\n";
+                $text .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
+                $text .= "🆔 <b>Feedback ID:</b> #{$feedbackId}\n";
+                $text .= "👤 <b>User:</b> <code>{$feedback->username}</code>\n";
+                $text .= "⏰ <b>Thời gian:</b> " . date('d/m/Y H:i:s');
+
+                $keyboard = [
+                    'inline_keyboard' => [
+                        [['text' => '🔄 Xem danh sách', 'callback_data' => 'menu_pending_feedback']],
+                        [['text' => '🏠 Menu', 'callback_data' => 'menu_back']]
+                    ]
+                ];
+
+                $messageId = $message['message_id'] ?? null;
+                if ($messageId) {
+                    $this->telegramService->editMessageText($chatId, $messageId, $text, 'HTML', $keyboard);
+                } else {
+                    $this->telegramService->sendMessage($chatId, $text, 'HTML', $keyboard);
+                }
+                $this->showSuccess($callbackQueryId, 'Đã đánh dấu đã xử lý!', false);
+                return;
+            }
+
+            // Xử lý hiển thị form phản hồi
+            if (strpos($data, 'feedback_reply_') === 0) {
+                $feedbackId = str_replace('feedback_reply_', '', $data);
+                $feedback = \App\Models\Feedback::find($feedbackId);
+                if (!$feedback) {
+                    $this->showError($callbackQueryId, 'Không tìm thấy feedback', true);
+                    return;
+                }
+
+                $text = "💬 <b>GỬI PHẢN HỒI CHO USER</b>\n";
+                $text .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
+                $text .= "🆔 <b>Feedback ID:</b> #{$feedbackId}\n";
+                $text .= "👤 <b>User:</b> <code>{$feedback->username}</code>\n";
+                $text .= "📧 <b>Email:</b> <code>{$feedback->email}</code>\n\n";
+                $text .= "📝 <b>Nội dung feedback:</b>\n";
+                $text .= "{$feedback->message}\n\n";
+                $text .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+                $text .= "Nhập phản hồi theo format:\n";
+                $text .= "<code>reply:{$feedbackId}:nội dung phản hồi</code>\n\n";
+                $text .= "Ví dụ:\n";
+                $text .= "<code>reply:{$feedbackId}:Cảm ơn bạn đã phản hồi. Chúng tôi đã xử lý vấn đề của bạn.</code>";
+
+                $keyboard = [
+                    'inline_keyboard' => [
+                        [['text' => '⬅️ Quay lại', 'callback_data' => 'menu_pending_feedback']]
+                    ]
+                ];
+
+                $messageId = $message['message_id'] ?? null;
+                if ($messageId) {
+                    $this->telegramService->editMessageText($chatId, $messageId, $text, 'HTML', $keyboard);
+                } else {
+                    $this->telegramService->sendMessage($chatId, $text, 'HTML', $keyboard);
+                }
+                $this->showSuccess($callbackQueryId, 'Nhập phản hồi', false);
+                return;
+            }
+
+            // Hiển thị danh sách feedback chờ xử lý
             $feedbacks = \App\Models\Feedback::where('status', 0)
                 ->orderBy('id', 'desc')
                 ->limit(10)
@@ -672,25 +761,41 @@ class TelegramWebhookController extends Controller
 
             if ($feedbacks->isEmpty()) {
                 $text = "✅ <b>KHÔNG CÓ FEEDBACK CHỜ XỬ LÝ</b>\n\nTất cả feedback đã được xử lý!";
+                $keyboard = [
+                    'inline_keyboard' => [
+                        [['text' => '🔄 Làm mới', 'callback_data' => 'menu_pending_feedback']],
+                        [['text' => '🏠 Menu', 'callback_data' => 'menu_back']]
+                    ]
+                ];
             } else {
-                $text = "📋 <b>FEEDBACK CHỜ XỬ LÝ</b> (" . $feedbacks->count() . ")\n\n";
+                $text = "📋 <b>FEEDBACK CHỜ XỬ LÝ</b> (" . $feedbacks->count() . ")\n";
+                $text .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
+                
+                $keyboard = ['inline_keyboard' => []];
                 foreach ($feedbacks as $feedback) {
                     $text .= "🆔 <b>#{$feedback->id}</b>\n";
                     $text .= "👤 <code>{$feedback->username}</code>\n";
                     $text .= "📧 <code>{$feedback->email}</code>\n";
-                    $content = mb_substr($feedback->message, 0, 100);
-                    if (mb_strlen($feedback->message) > 100) $content .= '...';
+                    $content = mb_substr($feedback->message, 0, 80);
+                    if (mb_strlen($feedback->message) > 80) $content .= '...';
                     $text .= "📝 {$content}\n";
-                    $text .= "⏰ {$feedback->time}\n\n";
-                }
-            }
+                    $text .= "⏰ {$feedback->time}\n";
+                    $text .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
 
-            $keyboard = [
-                'inline_keyboard' => [
-                    [['text' => '🔄 Làm mới', 'callback_data' => 'menu_pending_feedback']],
-                    [['text' => '🏠 Về menu chính', 'callback_data' => 'menu_back']]
-                ]
-            ];
+                    // Thêm 2 nút cho mỗi feedback
+                    $keyboard['inline_keyboard'][] = [
+                        ['text' => '✅ Xử lý', 'callback_data' => 'feedback_mark_' . $feedback->id],
+                        ['text' => '💬 Gửi phản hồi', 'callback_data' => 'feedback_reply_' . $feedback->id]
+                    ];
+                }
+                
+                $keyboard['inline_keyboard'][] = [
+                    ['text' => '🔄 Làm mới', 'callback_data' => 'menu_pending_feedback']
+                ];
+                $keyboard['inline_keyboard'][] = [
+                    ['text' => '🏠 Menu', 'callback_data' => 'menu_back']
+                ];
+            }
 
             $messageId = $message['message_id'] ?? null;
             if ($messageId) {
@@ -1442,6 +1547,65 @@ class TelegramWebhookController extends Controller
             ]);
         } catch (\Exception $e) {
             Log::error('Error processing update DNS', ['error' => $e->getMessage()]);
+            $this->telegramService->sendMessage($chatId, "❌ Có lỗi xảy ra: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Xử lý lệnh gửi phản hồi: reply:feedbackId:nội dung
+     */
+    protected function processReplyFeedback(string $chatId, string $feedbackId, string $replyText): void
+    {
+        try {
+            $feedback = \App\Models\Feedback::find($feedbackId);
+            if (!$feedback) {
+                $this->telegramService->sendMessage($chatId, "❌ Không tìm thấy feedback ID: <code>{$feedbackId}</code>", 'HTML');
+                return;
+            }
+
+            $replyTime = date('d/m/Y - H:i:s');
+            $feedback->admin_reply = $replyText;
+            $feedback->reply_time = $replyTime;
+            $feedback->status = 1;
+            $feedback->save();
+
+            // Gửi tin nhắn cho user qua Telegram nếu có chat ID
+            $telegramSent = false;
+            if (!empty($feedback->telegram_chat_id)) {
+                $telegramMessage = "✅ <b>PHẢN HỒI TỪ ADMIN</b>\n\n";
+                $telegramMessage .= $replyText . "\n\n";
+                $telegramMessage .= "⏰ " . $replyTime;
+                $telegramSent = $this->telegramService->sendMessage($feedback->telegram_chat_id, $telegramMessage, 'HTML');
+            }
+
+            $text = "✅ <b>ĐÃ GỬI PHẢN HỒI THÀNH CÔNG!</b>\n\n";
+            $text .= "🆔 <b>Feedback ID:</b> #{$feedbackId}\n";
+            $text .= "👤 <b>User:</b> <code>{$feedback->username}</code>\n";
+            $text .= "📧 <b>Email:</b> <code>{$feedback->email}</code>\n\n";
+            $text .= "📝 <b>Phản hồi:</b>\n{$replyText}\n\n";
+            $text .= "⏰ <b>Thời gian:</b> {$replyTime}\n";
+            if ($telegramSent) {
+                $text .= "\n✅ Tin nhắn đã được gửi qua Telegram cho user.";
+            } elseif (!empty($feedback->telegram_chat_id)) {
+                $text .= "\n⚠️ Không thể gửi tin nhắn qua Telegram (có thể user đã chặn bot).";
+            }
+
+            $keyboard = [
+                'inline_keyboard' => [
+                    [['text' => '🔄 Xem danh sách', 'callback_data' => 'menu_pending_feedback']],
+                    [['text' => '🏠 Menu', 'callback_data' => 'menu_back']]
+                ]
+            ];
+
+            $this->telegramService->sendMessage($chatId, $text, 'HTML', $keyboard);
+            
+            Log::info('Feedback reply sent via Telegram', [
+                'feedback_id' => $feedbackId,
+                'admin_chat_id' => $chatId,
+                'telegram_sent' => $telegramSent
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error processing reply feedback', ['error' => $e->getMessage()]);
             $this->telegramService->sendMessage($chatId, "❌ Có lỗi xảy ra: " . $e->getMessage());
         }
     }
