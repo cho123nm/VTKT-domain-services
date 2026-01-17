@@ -61,6 +61,13 @@ class SetTelegramWebhook extends Command
         if (empty($webhookUrl)) {
             $appUrl = config('app.url'); // Lấy APP_URL từ config
             $webhookUrl = rtrim($appUrl, '/') . '/telegram/webhook'; // Tạo URL webhook
+            
+            // Tự động chuyển HTTP sang HTTPS (vì Telegram yêu cầu HTTPS)
+            // Hữu ích khi dùng Cloudflare hoặc reverse proxy
+            if (strpos($webhookUrl, 'http://') === 0) {
+                $webhookUrl = str_replace('http://', 'https://', $webhookUrl);
+                $this->info("⚠️  Đã tự động chuyển HTTP sang HTTPS cho webhook URL");
+            }
         }
 
         // Hiển thị thông báo đang thiết lập webhook
