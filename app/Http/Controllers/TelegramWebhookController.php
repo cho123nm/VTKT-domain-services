@@ -177,25 +177,34 @@ class TelegramWebhookController extends Controller
         // Nếu là admin, hiển thị menu chính
         if ($chatId == $adminChatId) {
             $message = "👋 <b>CHÀO MỪNG ADMIN!</b>\n\n" .
+                       "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" .
+                       "📱 <b>MENU QUẢN LÝ</b>\n" .
+                       "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n" .
                        "Chọn chức năng bạn muốn sử dụng:";
             
-            // Tạo menu với inline keyboard
+            // Tạo menu với inline keyboard - nút to hơn, đẹp hơn
             $menuKeyboard = [
                 'inline_keyboard' => [
                     [
-                        ['text' => '📋 Feedback chờ xử lý', 'callback_data' => 'menu_pending_feedback'],
-                        ['text' => '✅ Feedback đã xử lý', 'callback_data' => 'menu_processed_feedback']
+                        ['text' => '📋 FEEDBACK CHỜ XỬ LÝ', 'callback_data' => 'menu_pending_feedback']
                     ],
                     [
-                        ['text' => '📊 Thống kê tài khoản', 'callback_data' => 'menu_user_stats'],
-                        ['text' => '💰 Cộng tiền cho TK', 'callback_data' => 'menu_add_balance']
+                        ['text' => '✅ FEEDBACK ĐÃ XỬ LÝ', 'callback_data' => 'menu_processed_feedback']
                     ],
                     [
-                        ['text' => '🌐 Cập nhật DNS', 'callback_data' => 'menu_update_dns'],
-                        ['text' => '📦 Đơn hàng mới', 'callback_data' => 'menu_new_orders']
+                        ['text' => '📊 THỐNG KÊ TÀI KHOẢN', 'callback_data' => 'menu_user_stats']
                     ],
                     [
-                        ['text' => 'ℹ️ Trợ giúp', 'callback_data' => 'menu_help']
+                        ['text' => '💰 CỘNG TIỀN CHO TK', 'callback_data' => 'menu_add_balance']
+                    ],
+                    [
+                        ['text' => '🌐 CẬP NHẬT DNS', 'callback_data' => 'menu_update_dns']
+                    ],
+                    [
+                        ['text' => '📦 ĐƠN HÀNG MỚI', 'callback_data' => 'menu_new_orders']
+                    ],
+                    [
+                        ['text' => 'ℹ️ TRỢ GIÚP', 'callback_data' => 'menu_help']
                     ]
                 ]
             ];
@@ -422,14 +431,14 @@ class TelegramWebhookController extends Controller
         } elseif ($data === 'menu_processed_feedback') {
             $this->handleProcessedFeedback($chatId, $callbackQueryId, $message);
             return;
-        } elseif ($data === 'menu_user_stats') {
+        } elseif ($data === 'menu_user_stats' || strpos($data, 'user_stats_page_') === 0) {
             $this->handleUserStats($chatId, $callbackQueryId, $message);
             return;
-        } elseif ($data === 'menu_add_balance') {
-            $this->handleAddBalance($chatId, $callbackQueryId, $message);
+        } elseif ($data === 'menu_add_balance' || strpos($data, 'add_balance_user_') === 0 || strpos($data, 'add_balance_amount_') === 0) {
+            $this->handleAddBalance($chatId, $callbackQueryId, $message, $data);
             return;
-        } elseif ($data === 'menu_update_dns') {
-            $this->handleUpdateDNS($chatId, $callbackQueryId, $message);
+        } elseif ($data === 'menu_update_dns' || strpos($data, 'update_dns_') === 0) {
+            $this->handleUpdateDNS($chatId, $callbackQueryId, $message, $data);
             return;
         } elseif ($data === 'menu_new_orders') {
             $this->handleNewOrders($chatId, $callbackQueryId, $message);
@@ -591,27 +600,62 @@ class TelegramWebhookController extends Controller
     }
 
     /**
-     * Xử lý thống kê tài khoản
+     * Xử lý thống kê tài khoản - hiển thị chi tiết từng tài khoản
      */
     protected function handleUserStats(string $chatId, ?string $callbackQueryId, array $message): void
     {
         try {
+            $page = isset($message['text']) && preg_match('/page_(\d+)/', $message['text'], $matches) ? (int)$matches[1] : 1;
+            $perPage = 5;
+            $offset = ($page - 1) * $perPage;
+
             $totalUsers = \App\Models\User::count();
             $totalBalance = \App\Models\User::sum('tien');
             $activeUsers = \App\Models\User::where('tien', '>', 0)->count();
             $pendingFeedback = \App\Models\Feedback::where('status', 0)->count();
 
-            $text = "📊 <b>THỐNG KÊ HỆ THỐNG</b>\n\n";
-            $text .= "👥 Tổng tài khoản: <b>{$totalUsers}</b>\n";
-            $text .= "💰 Tổng số dư: <b>" . number_format($totalBalance, 0, ',', '.') . " VNĐ</b>\n";
-            $text .= "✅ Tài khoản có dư: <b>{$activeUsers}</b>\n";
-            $text .= "📋 Feedback chờ xử lý: <b>{$pendingFeedback}</b>\n";
+            $users = \App\Models\User::orderBy('id', 'desc')
+                ->offset($offset)
+                ->limit($perPage)
+                ->get();
 
-            $keyboard = [
-                'inline_keyboard' => [
-                    [['text' => '🔄 Làm mới', 'callback_data' => 'menu_user_stats']],
-                    [['text' => '🏠 Về menu chính', 'callback_data' => 'menu_back']]
-                ]
+            $text = "📊 <b>THỐNG KÊ HỆ THỐNG</b>\n";
+            $text .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
+            $text .= "📈 <b>TỔNG QUAN</b>\n";
+            $text .= "👥 Tổng TK: <b>{$totalUsers}</b>\n";
+            $text .= "💰 Tổng dư: <b>" . number_format($totalBalance, 0, ',', '.') . " VNĐ</b>\n";
+            $text .= "✅ TK có dư: <b>{$activeUsers}</b>\n";
+            $text .= "📋 Feedback chờ: <b>{$pendingFeedback}</b>\n\n";
+            $text .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+            $text .= "👤 <b>CHI TIẾT TÀI KHOẢN</b> (Trang {$page}/" . ceil($totalUsers / $perPage) . ")\n";
+            $text .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
+
+            if ($users->isEmpty()) {
+                $text .= "Không có tài khoản nào.";
+            } else {
+                foreach ($users as $user) {
+                    $text .= "🆔 <b>ID:</b> {$user->id}\n";
+                    $text .= "👤 <b>TK:</b> <code>{$user->taikhoan}</code>\n";
+                    $text .= "📧 <b>Email:</b> <code>{$user->email}</code>\n";
+                    $text .= "💰 <b>Số dư:</b> <b>" . number_format($user->tien, 0, ',', '.') . " VNĐ</b>\n";
+                    $text .= "⏰ <b>Ngày tạo:</b> {$user->time}\n";
+                    $text .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
+                }
+            }
+
+            $keyboard = ['inline_keyboard' => []];
+            
+            // Nút phân trang
+            if ($page > 1) {
+                $keyboard['inline_keyboard'][] = [['text' => '⬅️ Trước', 'callback_data' => 'user_stats_page_' . ($page - 1)]];
+            }
+            if ($page < ceil($totalUsers / $perPage)) {
+                $keyboard['inline_keyboard'][] = [['text' => 'Tiếp ➡️', 'callback_data' => 'user_stats_page_' . ($page + 1)]];
+            }
+            
+            $keyboard['inline_keyboard'][] = [
+                ['text' => '🔄 Làm mới', 'callback_data' => 'menu_user_stats'],
+                ['text' => '🏠 Menu', 'callback_data' => 'menu_back']
             ];
 
             $messageId = $message['message_id'] ?? null;
@@ -632,85 +676,320 @@ class TelegramWebhookController extends Controller
     }
 
     /**
-     * Xử lý cộng tiền cho tài khoản
+     * Xử lý cộng tiền cho tài khoản - hiển thị danh sách tài khoản
      */
-    protected function handleAddBalance(string $chatId, ?string $callbackQueryId, array $message): void
+    protected function handleAddBalance(string $chatId, ?string $callbackQueryId, array $message, string $data = 'menu_add_balance'): void
     {
-        $text = "💰 <b>CỘNG TIỀN CHO TÀI KHOẢN</b>\n\n";
-        $text .= "Vui lòng nhập theo format:\n";
-        $text .= "<code>congtien:username:sotien</code>\n\n";
-        $text .= "Ví dụ:\n";
-        $text .= "<code>congtien:vu123:100000</code>\n\n";
-        $text .= "⚠️ Lưu ý: Chỉ nhập số tiền, không có dấu phẩy hoặc ký tự đặc biệt.";
+        try {
+            // Nếu click vào user cụ thể
+            if (strpos($data, 'add_balance_user_') === 0) {
+                $userId = str_replace('add_balance_user_', '', $data);
+                $user = \App\Models\User::find($userId);
+                if (!$user) {
+                    $this->telegramService->answerCallbackQuery($callbackQueryId, '❌ Không tìm thấy tài khoản');
+                    return;
+                }
 
-        $keyboard = [
-            'inline_keyboard' => [
-                [['text' => '🏠 Về menu chính', 'callback_data' => 'menu_back']]
-            ]
-        ];
+                $text = "💰 <b>CỘNG TIỀN CHO TÀI KHOẢN</b>\n";
+                $text .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
+                $text .= "👤 <b>Tài khoản:</b> <code>{$user->taikhoan}</code>\n";
+                $text .= "📧 <b>Email:</b> <code>{$user->email}</code>\n";
+                $text .= "💰 <b>Số dư hiện tại:</b> <b>" . number_format($user->tien, 0, ',', '.') . " VNĐ</b>\n\n";
+                $text .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+                $text .= "Chọn số tiền muốn cộng:\n\n";
 
-        $messageId = $message['message_id'] ?? null;
-        if ($messageId) {
-            $this->telegramService->editMessageText($chatId, $messageId, $text, 'HTML', $keyboard);
-        } else {
-            $this->telegramService->sendMessage($chatId, $text, 'HTML', $keyboard);
-        }
-        if ($callbackQueryId) {
-            $this->telegramService->answerCallbackQuery($callbackQueryId, 'Đã hiển thị hướng dẫn');
+                $keyboard = [
+                    'inline_keyboard' => [
+                        [
+                            ['text' => '➕ 10,000 VNĐ', 'callback_data' => 'add_balance_amount_' . $userId . '_10000'],
+                            ['text' => '➕ 50,000 VNĐ', 'callback_data' => 'add_balance_amount_' . $userId . '_50000']
+                        ],
+                        [
+                            ['text' => '➕ 100,000 VNĐ', 'callback_data' => 'add_balance_amount_' . $userId . '_100000'],
+                            ['text' => '➕ 500,000 VNĐ', 'callback_data' => 'add_balance_amount_' . $userId . '_500000']
+                        ],
+                        [
+                            ['text' => '➕ 1,000,000 VNĐ', 'callback_data' => 'add_balance_amount_' . $userId . '_1000000']
+                        ],
+                        [
+                            ['text' => '⬅️ Quay lại', 'callback_data' => 'menu_add_balance']
+                        ]
+                    ]
+                ];
+
+                $messageId = $message['message_id'] ?? null;
+                if ($messageId) {
+                    $this->telegramService->editMessageText($chatId, $messageId, $text, 'HTML', $keyboard);
+                } else {
+                    $this->telegramService->sendMessage($chatId, $text, 'HTML', $keyboard);
+                }
+                if ($callbackQueryId) {
+                    $this->telegramService->answerCallbackQuery($callbackQueryId, 'Chọn số tiền');
+                }
+                return;
+            }
+
+            // Nếu click vào số tiền
+            if (strpos($data, 'add_balance_amount_') === 0) {
+                $parts = explode('_', $data);
+                $userId = $parts[3];
+                $amount = (int)$parts[4];
+                
+                $user = \App\Models\User::find($userId);
+                if (!$user) {
+                    $this->telegramService->answerCallbackQuery($callbackQueryId, '❌ Không tìm thấy tài khoản');
+                    return;
+                }
+
+                $oldBalance = $user->tien;
+                $user->incrementBalance($amount);
+                $newBalance = $user->tien;
+
+                $text = "✅ <b>CỘNG TIỀN THÀNH CÔNG!</b>\n";
+                $text .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
+                $text .= "👤 <b>Tài khoản:</b> <code>{$user->taikhoan}</code>\n";
+                $text .= "💰 <b>Số tiền:</b> <b>" . number_format($amount, 0, ',', '.') . " VNĐ</b>\n";
+                $text .= "📊 <b>Số dư cũ:</b> " . number_format($oldBalance, 0, ',', '.') . " VNĐ\n";
+                $text .= "📊 <b>Số dư mới:</b> <b>" . number_format($newBalance, 0, ',', '.') . " VNĐ</b>\n";
+
+                $keyboard = [
+                    'inline_keyboard' => [
+                        [['text' => '🔄 Cộng thêm', 'callback_data' => 'add_balance_user_' . $userId]],
+                        [['text' => '🏠 Menu', 'callback_data' => 'menu_back']]
+                    ]
+                ];
+
+                $messageId = $message['message_id'] ?? null;
+                if ($messageId) {
+                    $this->telegramService->editMessageText($chatId, $messageId, $text, 'HTML', $keyboard);
+                } else {
+                    $this->telegramService->sendMessage($chatId, $text, 'HTML', $keyboard);
+                }
+                if ($callbackQueryId) {
+                    $this->telegramService->answerCallbackQuery($callbackQueryId, '✅ Đã cộng tiền thành công!');
+                }
+
+                Log::info('Balance added via Telegram menu', [
+                    'username' => $user->taikhoan,
+                    'amount' => $amount,
+                    'admin_chat_id' => $chatId
+                ]);
+                return;
+            }
+
+            // Hiển thị danh sách tài khoản
+            $users = \App\Models\User::orderBy('id', 'desc')->limit(10)->get();
+
+            $text = "💰 <b>CỘNG TIỀN CHO TÀI KHOẢN</b>\n";
+            $text .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
+            $text .= "Chọn tài khoản muốn cộng tiền:\n\n";
+
+            $keyboard = ['inline_keyboard' => []];
+            foreach ($users as $user) {
+                $balance = number_format($user->tien, 0, ',', '.');
+                $keyboard['inline_keyboard'][] = [
+                    ['text' => "👤 {$user->taikhoan} (💰 {$balance} VNĐ)", 'callback_data' => 'add_balance_user_' . $user->id]
+                ];
+            }
+            $keyboard['inline_keyboard'][] = [['text' => '🏠 Menu', 'callback_data' => 'menu_back']];
+
+            $messageId = $message['message_id'] ?? null;
+            if ($messageId) {
+                $this->telegramService->editMessageText($chatId, $messageId, $text, 'HTML', $keyboard);
+            } else {
+                $this->telegramService->sendMessage($chatId, $text, 'HTML', $keyboard);
+            }
+            if ($callbackQueryId) {
+                $this->telegramService->answerCallbackQuery($callbackQueryId, 'Đã tải danh sách tài khoản');
+            }
+        } catch (\Exception $e) {
+            Log::error('Error handling add balance', ['error' => $e->getMessage()]);
+            if ($callbackQueryId) {
+                $this->telegramService->answerCallbackQuery($callbackQueryId, '❌ Có lỗi xảy ra');
+            }
         }
     }
 
     /**
-     * Xử lý cập nhật DNS
+     * Xử lý cập nhật DNS - hiển thị danh sách domain đang yêu cầu
      */
-    protected function handleUpdateDNS(string $chatId, ?string $callbackQueryId, array $message): void
+    protected function handleUpdateDNS(string $chatId, ?string $callbackQueryId, array $message, string $data = 'menu_update_dns'): void
     {
-        $text = "🌐 <b>CẬP NHẬT DNS</b>\n\n";
-        $text .= "Vui lòng nhập theo format:\n";
-        $text .= "<code>updatedns:domain:ns1:ns2</code>\n\n";
-        $text .= "Ví dụ:\n";
-        $text .= "<code>updatedns:example.com:ns1.example.com:ns2.example.com</code>";
+        try {
+            // Nếu click vào domain cụ thể để cập nhật
+            if (strpos($data, 'update_dns_') === 0 && strpos($data, '_confirm_') === false) {
+                $domainId = str_replace('update_dns_', '', $data);
+                $history = \App\Models\History::find($domainId);
+                if (!$history) {
+                    $this->telegramService->answerCallbackQuery($callbackQueryId, '❌ Không tìm thấy domain');
+                    return;
+                }
 
-        $keyboard = [
-            'inline_keyboard' => [
-                [['text' => '🏠 Về menu chính', 'callback_data' => 'menu_back']]
-            ]
-        ];
+                $username = $history->user ? $history->user->taikhoan : 'N/A';
+                $domain = $history->domain;
+                
+                $text = "🌐 <b>CẬP NHẬT DNS</b>\n";
+                $text .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
+                $text .= "🌍 <b>Domain:</b> <code>" . $domain . "</code>\n";
+                $text .= "👤 <b>User:</b> <code>" . $username . "</code>\n";
+                $text .= "📊 <b>NS1 hiện tại:</b> <code>" . $history->ns1 . "</code>\n";
+                $text .= "📊 <b>NS2 hiện tại:</b> <code>" . $history->ns2 . "</code>\n\n";
+                $text .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+                $text .= "Nhập DNS mới theo format:\n";
+                $text .= "<code>updatedns:" . $domain . ":ns1:ns2</code>\n\n";
+                $text .= "Ví dụ:\n";
+                $text .= "<code>updatedns:" . $domain . ":ns1.example.com:ns2.example.com</code>";
 
-        $messageId = $message['message_id'] ?? null;
-        if ($messageId) {
-            $this->telegramService->editMessageText($chatId, $messageId, $text, 'HTML', $keyboard);
-        } else {
-            $this->telegramService->sendMessage($chatId, $text, 'HTML', $keyboard);
-        }
-        if ($callbackQueryId) {
-            $this->telegramService->answerCallbackQuery($callbackQueryId, 'Đã hiển thị hướng dẫn');
+                $keyboard = [
+                    'inline_keyboard' => [
+                        [['text' => '⬅️ Quay lại', 'callback_data' => 'menu_update_dns']]
+                    ]
+                ];
+
+                $messageId = $message['message_id'] ?? null;
+                if ($messageId) {
+                    $this->telegramService->editMessageText($chatId, $messageId, $text, 'HTML', $keyboard);
+                } else {
+                    $this->telegramService->sendMessage($chatId, $text, 'HTML', $keyboard);
+                }
+                if ($callbackQueryId) {
+                    $this->telegramService->answerCallbackQuery($callbackQueryId, 'Nhập DNS mới');
+                }
+                return;
+            }
+
+            // Hiển thị danh sách domain đang yêu cầu cập nhật DNS (ahihi = 1)
+            $domains = \App\Models\History::where('ahihi', '1')
+                ->orderBy('id', 'desc')
+                ->limit(20)
+                ->get();
+
+            $text = "🌐 <b>CẬP NHẬT DNS</b>\n";
+            $text .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
+
+            if ($domains->isEmpty()) {
+                $text .= "✅ <b>KHÔNG CÓ ĐƠN NÀO YÊU CẦU CẬP NHẬT DNS</b>\n\n";
+                $text .= "Tất cả đơn hàng đã được xử lý!";
+            } else {
+                $text .= "📋 <b>DANH SÁCH DOMAIN ĐANG YÊU CẦU</b> (" . $domains->count() . ")\n";
+                $text .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
+
+                $keyboard = ['inline_keyboard' => []];
+                foreach ($domains as $domain) {
+                    $username = $domain->user->taikhoan ?? 'N/A';
+                    $text .= "🌍 <b>Domain:</b> <code>{$domain->domain}</code>\n";
+                    $text .= "👤 <b>User:</b> <code>{$username}</code>\n";
+                    $text .= "📊 <b>NS1:</b> <code>{$domain->ns1}</code>\n";
+                    $text .= "📊 <b>NS2:</b> <code>{$domain->ns2}</code>\n";
+                    $text .= "⏰ <b>Thời gian:</b> {$domain->time}\n";
+                    $text .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
+
+                    $keyboard['inline_keyboard'][] = [
+                        ['text' => "🌐 Cập nhật {$domain->domain}", 'callback_data' => 'update_dns_' . $domain->id]
+                    ];
+                }
+                $keyboard['inline_keyboard'][] = [['text' => '🏠 Menu', 'callback_data' => 'menu_back']];
+            }
+
+            if (!isset($keyboard)) {
+                $keyboard = [
+                    'inline_keyboard' => [
+                        [['text' => '🔄 Làm mới', 'callback_data' => 'menu_update_dns']],
+                        [['text' => '🏠 Menu', 'callback_data' => 'menu_back']]
+                    ]
+                ];
+            }
+
+            $messageId = $message['message_id'] ?? null;
+            if ($messageId) {
+                $this->telegramService->editMessageText($chatId, $messageId, $text, 'HTML', $keyboard);
+            } else {
+                $this->telegramService->sendMessage($chatId, $text, 'HTML', $keyboard);
+            }
+            if ($callbackQueryId) {
+                $this->telegramService->answerCallbackQuery($callbackQueryId, 'Đã tải danh sách');
+            }
+        } catch (\Exception $e) {
+            Log::error('Error handling update DNS', ['error' => $e->getMessage()]);
+            if ($callbackQueryId) {
+                $this->telegramService->answerCallbackQuery($callbackQueryId, '❌ Có lỗi xảy ra');
+            }
         }
     }
 
     /**
-     * Xử lý xem đơn hàng mới
+     * Xử lý xem đơn hàng mới - hiển thị trực quan
      */
     protected function handleNewOrders(string $chatId, ?string $callbackQueryId, array $message): void
     {
-        $text = "📦 <b>ĐƠN HÀNG MỚI</b>\n\n";
-        $text .= "Chức năng này đang được phát triển.\n";
-        $text .= "Bạn sẽ nhận được thông báo tự động khi có đơn hàng mới.";
+        try {
+            // Đơn hàng mới (status = 0 - Chờ xử lý)
+            $newOrders = \App\Models\History::where('status', 0)
+                ->orderBy('id', 'desc')
+                ->limit(10)
+                ->get();
 
-        $keyboard = [
-            'inline_keyboard' => [
-                [['text' => '🏠 Về menu chính', 'callback_data' => 'menu_back']]
-            ]
-        ];
+            // Đơn hàng đã duyệt (status = 1)
+            $approvedOrders = \App\Models\History::where('status', 1)
+                ->orderBy('id', 'desc')
+                ->limit(5)
+                ->get();
 
-        $messageId = $message['message_id'] ?? null;
-        if ($messageId) {
-            $this->telegramService->editMessageText($chatId, $messageId, $text, 'HTML', $keyboard);
-        } else {
-            $this->telegramService->sendMessage($chatId, $text, 'HTML', $keyboard);
-        }
-        if ($callbackQueryId) {
-            $this->telegramService->answerCallbackQuery($callbackQueryId, 'Đã hiển thị thông tin');
+            $text = "📦 <b>QUẢN LÝ ĐƠN HÀNG</b>\n";
+            $text .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
+
+            // Thống kê
+            $totalNew = \App\Models\History::where('status', 0)->count();
+            $totalApproved = \App\Models\History::where('status', 1)->count();
+            $totalCancelled = \App\Models\History::where('status', 2)->count();
+
+            $text .= "📊 <b>THỐNG KÊ</b>\n";
+            $text .= "⏳ Chờ xử lý: <b>{$totalNew}</b>\n";
+            $text .= "✅ Đã duyệt: <b>{$totalApproved}</b>\n";
+            $text .= "❌ Đã hủy: <b>{$totalCancelled}</b>\n\n";
+            $text .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
+
+            if ($newOrders->isEmpty()) {
+                $text .= "✅ <b>KHÔNG CÓ ĐƠN HÀNG MỚI</b>\n\n";
+                $text .= "Tất cả đơn hàng đã được xử lý!";
+            } else {
+                $text .= "⏳ <b>ĐƠN HÀNG CHỜ XỬ LÝ</b> (" . $newOrders->count() . ")\n";
+                $text .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
+
+                foreach ($newOrders as $order) {
+                    $username = $order->user->taikhoan ?? 'N/A';
+                    $text .= "🆔 <b>ID:</b> {$order->id}\n";
+                    $text .= "🌍 <b>Domain:</b> <code>{$order->domain}</code>\n";
+                    $text .= "👤 <b>User:</b> <code>{$username}</code>\n";
+                    $text .= "🔖 <b>MGD:</b> <code>{$order->mgd}</code>\n";
+                    $text .= "📊 <b>NS1:</b> <code>{$order->ns1}</code>\n";
+                    $text .= "📊 <b>NS2:</b> <code>{$order->ns2}</code>\n";
+                    $text .= "⏰ <b>Thời gian:</b> {$order->time}\n";
+                    $text .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
+                }
+            }
+
+            $keyboard = [
+                'inline_keyboard' => [
+                    [['text' => '🔄 Làm mới', 'callback_data' => 'menu_new_orders']],
+                    [['text' => '🏠 Menu', 'callback_data' => 'menu_back']]
+                ]
+            ];
+
+            $messageId = $message['message_id'] ?? null;
+            if ($messageId) {
+                $this->telegramService->editMessageText($chatId, $messageId, $text, 'HTML', $keyboard);
+            } else {
+                $this->telegramService->sendMessage($chatId, $text, 'HTML', $keyboard);
+            }
+            if ($callbackQueryId) {
+                $this->telegramService->answerCallbackQuery($callbackQueryId, 'Đã tải danh sách đơn hàng');
+            }
+        } catch (\Exception $e) {
+            Log::error('Error handling new orders', ['error' => $e->getMessage()]);
+            if ($callbackQueryId) {
+                $this->telegramService->answerCallbackQuery($callbackQueryId, '❌ Có lỗi xảy ra');
+            }
         }
     }
 
