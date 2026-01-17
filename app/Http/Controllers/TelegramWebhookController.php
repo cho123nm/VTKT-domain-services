@@ -117,6 +117,12 @@ class TelegramWebhookController extends Controller
             return;
         }
 
+        // Xử lý lệnh /menu - gọi menu chính
+        if (strpos($text, '/menu') === 0) {
+            $this->handleStartCommand($chatId); // Dùng lại hàm handleStartCommand để hiển thị menu
+            return;
+        }
+
         // Xử lý lệnh /help
         if (strpos($text, '/help') === 0) {
             $this->handleHelpCommand($chatId);
@@ -1086,5 +1092,36 @@ class TelegramWebhookController extends Controller
             Log::error('Error processing update DNS', ['error' => $e->getMessage()]);
             $this->telegramService->sendMessage($chatId, "❌ Có lỗi xảy ra: " . $e->getMessage());
         }
+    }
+
+    /**
+     * Helper method để thêm nút Menu vào keyboard
+     * 
+     * @param array $keyboard - Keyboard hiện tại
+     * @return array - Keyboard đã thêm nút Menu
+     */
+    protected function addMenuButton(array $keyboard): array
+    {
+        // Đảm bảo có nút Menu ở cuối
+        $hasMenuButton = false;
+        if (isset($keyboard['inline_keyboard'])) {
+            foreach ($keyboard['inline_keyboard'] as $row) {
+                foreach ($row as $button) {
+                    if (isset($button['callback_data']) && $button['callback_data'] === 'menu_back') {
+                        $hasMenuButton = true;
+                        break 2;
+                    }
+                }
+            }
+        }
+        
+        if (!$hasMenuButton) {
+            if (!isset($keyboard['inline_keyboard'])) {
+                $keyboard['inline_keyboard'] = [];
+            }
+            $keyboard['inline_keyboard'][] = [['text' => '🏠 MENU', 'callback_data' => 'menu_back']];
+        }
+        
+        return $keyboard;
     }
 }

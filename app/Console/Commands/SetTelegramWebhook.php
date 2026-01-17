@@ -81,6 +81,20 @@ class SetTelegramWebhook extends Command
                     'allowed_updates' => ['message', 'callback_query'] // Chỉ nhận message và callback_query
                 ]);
 
+            // Đăng ký bot commands để hiển thị menu khi gõ "/"
+            $commandsResponse = Http::timeout(10)
+                ->post("https://api.telegram.org/bot{$botToken}/setMyCommands", [
+                    'commands' => [
+                        ['command' => 'start', 'description' => 'Khởi động bot và hiển thị menu'],
+                        ['command' => 'menu', 'description' => 'Hiển thị menu quản lý'],
+                        ['command' => 'help', 'description' => 'Hướng dẫn sử dụng bot']
+                    ]
+                ]);
+            
+            if ($commandsResponse->successful()) {
+                $this->info('✅ Đã đăng ký bot commands');
+            }
+
             // Kiểm tra response thành công (HTTP 200)
             if ($response->successful()) {
                 // Decode JSON response thành mảng PHP
