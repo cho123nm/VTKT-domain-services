@@ -782,10 +782,10 @@ class TelegramWebhookController extends Controller
                     $text .= "⏰ {$feedback->time}\n";
                     $text .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
 
-                    // Thêm 2 nút cho mỗi feedback
+                    // Thêm 2 nút cho mỗi feedback với ID để dễ nhận biết
                     $keyboard['inline_keyboard'][] = [
-                        ['text' => '✅ Xử lý', 'callback_data' => 'feedback_mark_' . $feedback->id],
-                        ['text' => '💬 Gửi phản hồi', 'callback_data' => 'feedback_reply_' . $feedback->id]
+                        ['text' => "✅ Xử lý #{$feedback->id}", 'callback_data' => 'feedback_mark_' . $feedback->id],
+                        ['text' => "💬 Gửi phản hồi #{$feedback->id}", 'callback_data' => 'feedback_reply_' . $feedback->id]
                     ];
                 }
                 
