@@ -563,37 +563,56 @@ class TelegramWebhookController extends Controller
 
         // Xử lý các menu item
         if ($data === 'menu_pending_feedback') {
+            $this->showLoading($callbackQueryId, '⏳ Đang tải feedback chờ xử lý...');
             $this->handlePendingFeedback($chatId, $callbackQueryId, $message);
             return;
         } elseif ($data === 'menu_processed_feedback') {
+            $this->showLoading($callbackQueryId, '⏳ Đang tải feedback đã xử lý...');
             $this->handleProcessedFeedback($chatId, $callbackQueryId, $message);
             return;
         } elseif ($data === 'menu_user_stats' || strpos($data, 'user_stats_page_') === 0) {
+            $this->showLoading($callbackQueryId, '⏳ Đang tải thống kê...');
             $this->handleUserStats($chatId, $callbackQueryId, $message);
             return;
         } elseif ($data === 'menu_add_balance' || strpos($data, 'add_balance_user_') === 0 || strpos($data, 'add_balance_amount_') === 0) {
+            if (strpos($data, 'add_balance_amount_') === 0) {
+                $this->showLoading($callbackQueryId, '⏳ Đang cộng tiền...');
+            } else {
+                $this->showLoading($callbackQueryId, '⏳ Đang tải danh sách tài khoản...');
+            }
             $this->handleAddBalance($chatId, $callbackQueryId, $message, $data);
             return;
         } elseif ($data === 'menu_update_dns' || strpos($data, 'update_dns_') === 0 || strpos($data, 'reject_dns_') === 0 || strpos($data, 'dns_update_') === 0 || strpos($data, 'dns_manual_') === 0) {
+            if (strpos($data, 'reject_dns_') === 0) {
+                $this->showLoading($callbackQueryId, '⏳ Đang từ chối yêu cầu...');
+            } elseif (strpos($data, 'dns_update_') === 0) {
+                $this->showLoading($callbackQueryId, '⏳ Đang cập nhật DNS...');
+            } else {
+                $this->showLoading($callbackQueryId, '⏳ Đang tải danh sách DNS...');
+            }
             $this->handleUpdateDNS($chatId, $callbackQueryId, $message, $data);
             return;
         } elseif ($data === 'menu_new_orders') {
+            $this->showLoading($callbackQueryId, '⏳ Đang tải đơn hàng...');
             $this->handleNewOrders($chatId, $callbackQueryId, $message);
             return;
         } elseif ($data === 'menu_help') {
+            $this->showLoading($callbackQueryId, '⏳ Đang tải hướng dẫn...');
             $this->handleHelpCommand($chatId);
-            $this->telegramService->answerCallbackQuery($callbackQueryId, 'Đã hiển thị hướng dẫn');
+            $this->showSuccess($callbackQueryId, 'Đã hiển thị hướng dẫn');
             return;
         } elseif ($data === 'menu_back') {
             // Quay về menu chính
+            $this->showLoading($callbackQueryId, '⏳ Đang quay về menu...');
             $this->handleStartCommand($chatId);
-            $this->telegramService->answerCallbackQuery($callbackQueryId, 'Đã quay về menu chính');
+            $this->showSuccess($callbackQueryId, 'Đã quay về menu chính');
             return;
         }
         
         // Xử lý callback "Đã hỗ trợ" feedback
         if (strpos($data, 'feedback_done_') === 0) {
             $feedbackId = str_replace('feedback_done_', '', $data);
+            $this->showLoading($callbackQueryId, '⏳ Đang đánh dấu đã hỗ trợ...');
             
             // Cập nhật status feedback trong database
             try {
@@ -604,7 +623,7 @@ class TelegramWebhookController extends Controller
                     $feedback->save();
 
                     // Trả lời callback query thành công
-                    $this->telegramService->answerCallbackQuery($callbackQueryId, '✅ Đã đánh dấu feedback #' . $feedbackId . ' là đã hỗ trợ!');
+                    $this->showSuccess($callbackQueryId, 'Đã đánh dấu feedback #' . $feedbackId . ' là đã hỗ trợ!');
                     
                     // Cập nhật tin nhắn để hiển thị đã xử lý
                     $messageId = $message['message_id'] ?? null;
@@ -625,18 +644,18 @@ class TelegramWebhookController extends Controller
                         'admin_chat_id' => $chatId
                     ]);
                 } else {
-                    $this->telegramService->answerCallbackQuery($callbackQueryId, '❌ Không tìm thấy feedback này.');
+                    $this->showError($callbackQueryId, 'Không tìm thấy feedback này.', true);
                 }
             } catch (\Exception $e) {
                 Log::error('Error processing feedback callback', [
                     'error' => $e->getMessage(),
                     'feedback_id' => $feedbackId
                 ]);
-                $this->telegramService->answerCallbackQuery($callbackQueryId, '❌ Có lỗi xảy ra khi xử lý.');
+                $this->showError($callbackQueryId, 'Có lỗi xảy ra khi xử lý: ' . $e->getMessage(), true);
             }
         } else {
             // Callback không được nhận diện
-            $this->telegramService->answerCallbackQuery($callbackQueryId, 'Hành động không hợp lệ.');
+            $this->showError($callbackQueryId, 'Hành động không hợp lệ.', false);
         }
     }
 
@@ -680,13 +699,11 @@ class TelegramWebhookController extends Controller
                 $this->telegramService->sendMessage($chatId, $text, 'HTML', $keyboard);
             }
             if ($callbackQueryId) {
-                $this->telegramService->answerCallbackQuery($callbackQueryId, 'Đã tải danh sách feedback');
+                $this->showSuccess($callbackQueryId, 'Đã tải danh sách feedback');
             }
         } catch (\Exception $e) {
             Log::error('Error handling pending feedback', ['error' => $e->getMessage()]);
-            if ($callbackQueryId) {
-                $this->telegramService->answerCallbackQuery($callbackQueryId, '❌ Có lỗi xảy ra');
-            }
+            $this->showError($callbackQueryId, 'Có lỗi xảy ra: ' . $e->getMessage(), true);
         }
     }
 
@@ -726,13 +743,11 @@ class TelegramWebhookController extends Controller
                 $this->telegramService->sendMessage($chatId, $text, 'HTML', $keyboard);
             }
             if ($callbackQueryId) {
-                $this->telegramService->answerCallbackQuery($callbackQueryId, 'Đã tải danh sách feedback');
+                $this->showSuccess($callbackQueryId, 'Đã tải danh sách feedback');
             }
         } catch (\Exception $e) {
             Log::error('Error handling processed feedback', ['error' => $e->getMessage()]);
-            if ($callbackQueryId) {
-                $this->telegramService->answerCallbackQuery($callbackQueryId, '❌ Có lỗi xảy ra');
-            }
+            $this->showError($callbackQueryId, 'Có lỗi xảy ra: ' . $e->getMessage(), true);
         }
     }
 
@@ -802,13 +817,11 @@ class TelegramWebhookController extends Controller
                 $this->telegramService->sendMessage($chatId, $text, 'HTML', $keyboard);
             }
             if ($callbackQueryId) {
-                $this->telegramService->answerCallbackQuery($callbackQueryId, 'Đã tải thống kê');
+                $this->showSuccess($callbackQueryId, 'Đã tải thống kê');
             }
         } catch (\Exception $e) {
             Log::error('Error handling user stats', ['error' => $e->getMessage()]);
-            if ($callbackQueryId) {
-                $this->telegramService->answerCallbackQuery($callbackQueryId, '❌ Có lỗi xảy ra');
-            }
+            $this->showError($callbackQueryId, 'Có lỗi xảy ra: ' . $e->getMessage(), true);
         }
     }
 
@@ -823,7 +836,7 @@ class TelegramWebhookController extends Controller
                 $userId = str_replace('add_balance_user_', '', $data);
                 $user = \App\Models\User::find($userId);
                 if (!$user) {
-                    $this->telegramService->answerCallbackQuery($callbackQueryId, '❌ Không tìm thấy tài khoản');
+                    $this->showError($callbackQueryId, 'Không tìm thấy tài khoản', true);
                     return;
                 }
 
@@ -860,9 +873,7 @@ class TelegramWebhookController extends Controller
                 } else {
                     $this->telegramService->sendMessage($chatId, $text, 'HTML', $keyboard);
                 }
-                if ($callbackQueryId) {
-                    $this->telegramService->answerCallbackQuery($callbackQueryId, 'Chọn số tiền');
-                }
+                $this->showSuccess($callbackQueryId, 'Chọn số tiền', false);
                 return;
             }
 
@@ -874,7 +885,7 @@ class TelegramWebhookController extends Controller
                 
                 $user = \App\Models\User::find($userId);
                 if (!$user) {
-                    $this->telegramService->answerCallbackQuery($callbackQueryId, '❌ Không tìm thấy tài khoản');
+                    $this->showError($callbackQueryId, 'Không tìm thấy tài khoản', true);
                     return;
                 }
 
@@ -902,9 +913,7 @@ class TelegramWebhookController extends Controller
                 } else {
                     $this->telegramService->sendMessage($chatId, $text, 'HTML', $keyboard);
                 }
-                if ($callbackQueryId) {
-                    $this->telegramService->answerCallbackQuery($callbackQueryId, '✅ Đã cộng tiền thành công!');
-                }
+                $this->showSuccess($callbackQueryId, 'Đã cộng tiền thành công!', false);
 
                 Log::info('Balance added via Telegram menu', [
                     'username' => $user->taikhoan,
@@ -937,13 +946,11 @@ class TelegramWebhookController extends Controller
                 $this->telegramService->sendMessage($chatId, $text, 'HTML', $keyboard);
             }
             if ($callbackQueryId) {
-                $this->telegramService->answerCallbackQuery($callbackQueryId, 'Đã tải danh sách tài khoản');
+                $this->showSuccess($callbackQueryId, 'Đã tải danh sách tài khoản');
             }
         } catch (\Exception $e) {
             Log::error('Error handling add balance', ['error' => $e->getMessage()]);
-            if ($callbackQueryId) {
-                $this->telegramService->answerCallbackQuery($callbackQueryId, '❌ Có lỗi xảy ra');
-            }
+            $this->showError($callbackQueryId, 'Có lỗi xảy ra: ' . $e->getMessage(), true);
         }
     }
 
@@ -958,7 +965,7 @@ class TelegramWebhookController extends Controller
                 $domainId = str_replace('reject_dns_', '', $data);
                 $history = \App\Models\History::find($domainId);
                 if (!$history) {
-                    $this->telegramService->answerCallbackQuery($callbackQueryId, '❌ Không tìm thấy domain');
+                    $this->showError($callbackQueryId, 'Không tìm thấy domain', true);
                     return;
                 }
 
@@ -986,9 +993,7 @@ class TelegramWebhookController extends Controller
                 } else {
                     $this->telegramService->sendMessage($chatId, $text, 'HTML', $keyboard);
                 }
-                if ($callbackQueryId) {
-                    $this->telegramService->answerCallbackQuery($callbackQueryId, '✅ Đã từ chối yêu cầu');
-                }
+                $this->showSuccess($callbackQueryId, 'Đã từ chối yêu cầu', false);
 
                 Log::info('DNS request rejected via Telegram', [
                     'domain_id' => $domainId,
@@ -1008,7 +1013,7 @@ class TelegramWebhookController extends Controller
                     
                     $history = \App\Models\History::find($domainId);
                     if (!$history) {
-                        $this->telegramService->answerCallbackQuery($callbackQueryId, '❌ Không tìm thấy domain');
+                        $this->showError($callbackQueryId, 'Không tìm thấy domain', true);
                         return;
                     }
 
@@ -1044,9 +1049,7 @@ class TelegramWebhookController extends Controller
                     } else {
                         $this->telegramService->sendMessage($chatId, $text, 'HTML', $keyboard);
                     }
-                    if ($callbackQueryId) {
-                        $this->telegramService->answerCallbackQuery($callbackQueryId, '✅ Đã cập nhật DNS thành công!');
-                    }
+                    $this->showSuccess($callbackQueryId, 'Đã cập nhật DNS thành công!', false);
 
                     Log::info('DNS updated via Telegram', [
                         'domain_id' => $domainId,
@@ -1063,7 +1066,7 @@ class TelegramWebhookController extends Controller
                 $domainId = str_replace('dns_manual_', '', $data);
                 $history = \App\Models\History::find($domainId);
                 if (!$history) {
-                    $this->telegramService->answerCallbackQuery($callbackQueryId, '❌ Không tìm thấy domain');
+                    $this->showError($callbackQueryId, 'Không tìm thấy domain', true);
                     return;
                 }
 
@@ -1087,9 +1090,7 @@ class TelegramWebhookController extends Controller
                 } else {
                     $this->telegramService->sendMessage($chatId, $text, 'HTML', $keyboard);
                 }
-                if ($callbackQueryId) {
-                    $this->telegramService->answerCallbackQuery($callbackQueryId, 'Nhập DNS mới');
-                }
+                $this->showSuccess($callbackQueryId, 'Nhập DNS mới', false);
                 return;
             }
 
@@ -1098,7 +1099,7 @@ class TelegramWebhookController extends Controller
                 $domainId = str_replace('update_dns_', '', $data);
                 $history = \App\Models\History::find($domainId);
                 if (!$history) {
-                    $this->telegramService->answerCallbackQuery($callbackQueryId, '❌ Không tìm thấy domain');
+                    $this->showError($callbackQueryId, 'Không tìm thấy domain', true);
                     return;
                 }
 
@@ -1140,9 +1141,7 @@ class TelegramWebhookController extends Controller
                 } else {
                     $this->telegramService->sendMessage($chatId, $text, 'HTML', $keyboard);
                 }
-                if ($callbackQueryId) {
-                    $this->telegramService->answerCallbackQuery($callbackQueryId, 'Chọn DNS mới');
-                }
+                $this->showSuccess($callbackQueryId, 'Chọn DNS mới', false);
                 return;
             }
 
@@ -1197,13 +1196,11 @@ class TelegramWebhookController extends Controller
                 $this->telegramService->sendMessage($chatId, $text, 'HTML', $keyboard);
             }
             if ($callbackQueryId) {
-                $this->telegramService->answerCallbackQuery($callbackQueryId, 'Đã tải danh sách');
+                $this->showSuccess($callbackQueryId, 'Đã tải danh sách');
             }
         } catch (\Exception $e) {
             Log::error('Error handling update DNS', ['error' => $e->getMessage()]);
-            if ($callbackQueryId) {
-                $this->telegramService->answerCallbackQuery($callbackQueryId, '❌ Có lỗi xảy ra');
-            }
+            $this->showError($callbackQueryId, 'Có lỗi xảy ra: ' . $e->getMessage(), true);
         }
     }
 
@@ -1273,13 +1270,11 @@ class TelegramWebhookController extends Controller
                 $this->telegramService->sendMessage($chatId, $text, 'HTML', $keyboard);
             }
             if ($callbackQueryId) {
-                $this->telegramService->answerCallbackQuery($callbackQueryId, 'Đã tải danh sách đơn hàng');
+                $this->showSuccess($callbackQueryId, 'Đã tải danh sách đơn hàng');
             }
         } catch (\Exception $e) {
             Log::error('Error handling new orders', ['error' => $e->getMessage()]);
-            if ($callbackQueryId) {
-                $this->telegramService->answerCallbackQuery($callbackQueryId, '❌ Có lỗi xảy ra');
-            }
+            $this->showError($callbackQueryId, 'Có lỗi xảy ra: ' . $e->getMessage(), true);
         }
     }
 
@@ -1407,5 +1402,50 @@ class TelegramWebhookController extends Controller
         }
         
         return $keyboard;
+    }
+
+    /**
+     * Helper method để hiển thị loading indicator
+     * 
+     * @param string|null $callbackQueryId - ID của callback query
+     * @param string $message - Thông báo loading (mặc định: "Đang xử lý...")
+     * @return void
+     */
+    protected function showLoading(?string $callbackQueryId, string $message = '⏳ Đang xử lý...'): void
+    {
+        if ($callbackQueryId) {
+            // Hiển thị loading indicator (notification)
+            $this->telegramService->answerCallbackQuery($callbackQueryId, $message, false);
+        }
+    }
+
+    /**
+     * Helper method để hiển thị lỗi
+     * 
+     * @param string|null $callbackQueryId - ID của callback query
+     * @param string $errorMessage - Thông báo lỗi
+     * @param bool $showAlert - Hiển thị alert popup (mặc định: true)
+     * @return void
+     */
+    protected function showError(?string $callbackQueryId, string $errorMessage, bool $showAlert = true): void
+    {
+        if ($callbackQueryId) {
+            $this->telegramService->answerCallbackQuery($callbackQueryId, '❌ ' . $errorMessage, $showAlert);
+        }
+    }
+
+    /**
+     * Helper method để hiển thị thành công
+     * 
+     * @param string|null $callbackQueryId - ID của callback query
+     * @param string $successMessage - Thông báo thành công
+     * @param bool $showAlert - Hiển thị alert popup (mặc định: false)
+     * @return void
+     */
+    protected function showSuccess(?string $callbackQueryId, string $successMessage, bool $showAlert = false): void
+    {
+        if ($callbackQueryId) {
+            $this->telegramService->answerCallbackQuery($callbackQueryId, '✅ ' . $successMessage, $showAlert);
+        }
     }
 }
