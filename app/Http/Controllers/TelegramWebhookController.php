@@ -32,6 +32,137 @@ class TelegramWebhookController extends Controller
     }
 
     /**
+     * Hiển thị thông tin webhook khi truy cập bằng GET (browser)
+     * 
+     * @return \Illuminate\Http\Response - Response HTML thân thiện
+     */
+    public function info()
+    {
+        $settings = \App\Models\Settings::getOne();
+        $botToken = $settings->telegram_bot_token ?? config('services.telegram.bot_token', '');
+        $adminChatId = $settings->telegram_admin_chat_id ?? config('services.telegram.admin_chat_id', '');
+        
+        $webhookUrl = config('app.url', '') . '/telegram/webhook';
+        if (strpos($webhookUrl, 'http://') === 0) {
+            $webhookUrl = str_replace('http://', 'https://', $webhookUrl);
+        }
+        
+        $html = '<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Telegram Webhook - VTKT</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        .icon {
+            text-align: center;
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 16px;
+        }
+        .info-box {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .info-box h2 {
+            color: #667eea;
+            font-size: 18px;
+            margin-bottom: 15px;
+        }
+        .info-item {
+            margin: 10px 0;
+            color: #555;
+        }
+        .info-item strong {
+            color: #333;
+        }
+        .status {
+            text-align: center;
+            padding: 15px;
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            border-radius: 8px;
+            color: #155724;
+            margin-top: 20px;
+            font-weight: 500;
+        }
+        .warning {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="icon">🤖</div>
+        <h1>Telegram Webhook</h1>
+        <p class="subtitle">Hệ thống quản lý Telegram Bot</p>
+        
+        <div class="info-box">
+            <h2>📋 Thông tin Webhook</h2>
+            <div class="info-item">
+                <strong>URL:</strong> <code>' . htmlspecialchars($webhookUrl) . '</code>
+            </div>
+            <div class="info-item">
+                <strong>Method:</strong> POST (Telegram API)
+            </div>
+            <div class="info-item">
+                <strong>Status:</strong> ' . (!empty($botToken) ? '✅ Đã cấu hình' : '❌ Chưa cấu hình') . '
+            </div>
+        </div>
+        
+        <div class="status">
+            ✅ Webhook đang hoạt động bình thường
+        </div>
+        
+        <div class="warning">
+            ⚠️ Lưu ý: Trang này chỉ để kiểm tra. Webhook chỉ chấp nhận POST request từ Telegram API.
+        </div>
+    </div>
+</body>
+</html>';
+        
+        return response($html, 200)->header('Content-Type', 'text/html; charset=utf-8');
+    }
+
+    /**
      * Xử lý webhook đến từ Telegram
      * Nhận dữ liệu từ Telegram và xử lý message hoặc callback query
      * 

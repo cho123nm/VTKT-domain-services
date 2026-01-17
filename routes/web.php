@@ -108,6 +108,8 @@ Route::post('/callback', [PaymentController::class, 'callback'])->name('callback
 
 // Route Telegram Webhook (không yêu cầu đăng nhập, cho Telegram Bot API)
 Route::post('/telegram/webhook', [TelegramWebhookController::class, 'handle'])->name('telegram.webhook');
+// Route GET để hiển thị thông báo thân thiện khi truy cập bằng browser
+Route::get('/telegram/webhook', [TelegramWebhookController::class, 'info'])->name('telegram.webhook.info');
 
 // Routes AJAX (prefix 'ajax')
 Route::prefix('ajax')->name('ajax.')->group(function() {
