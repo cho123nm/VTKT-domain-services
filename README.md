@@ -1147,6 +1147,16 @@ MAIL_FROM_NAME="${APP_NAME}"
   - Nạp tiền
   - Phản hồi mới
   - Cập nhật DNS
+- **Admin Interface (Menu Bot):**
+  - 📋 Xem feedback chờ xử lý (với nút "Xử lý" và "Gửi phản hồi" cho từng feedback)
+  - ✅ Xem feedback đã xử lý
+  - 📊 Thống kê chi tiết tài khoản (hiển thị từng tài khoản với số dư, số đơn hàng)
+  - 💰 Cộng tiền cho tài khoản (hiển thị toàn bộ tài khoản với phân trang)
+  - 🌐 Cập nhật DNS (xem danh sách domain yêu cầu, nút "Cập nhật" và "Từ chối")
+  - 📦 Xem đơn hàng mới (hiển thị trực quan khi có/không có đơn)
+  - 💬 Gửi phản hồi cho user qua Telegram (tương tự chức năng chat trong admin panel)
+  - 🔄 Loading animation và error handling khi thực hiện các thao tác
+  - 🏠 Menu chính với thiết kế lớn và đẹp mắt
 
 ### **2. Payment Gateway**
 - **Controller:** `PaymentController@callback`
