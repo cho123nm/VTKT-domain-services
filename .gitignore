@@ -54,3 +54,6 @@ public/assets
 # Public symlinks
 public/images
 
+# Documentation files (do not commit)
+CHUONG_3_PHAN_TICH_VA_XAY_DUNG.md
+
