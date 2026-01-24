@@ -58,7 +58,6 @@ class SourceCodeController extends Controller
             'category' => 'nullable|string|max:100', // Danh mục không bắt buộc, tối đa 100 ký tự
             'price' => 'required|numeric|min:0', // Giá bắt buộc, phải là số >= 0
             'image' => 'nullable|string', // Ảnh không bắt buộc (chọn từ danh sách)
-            'image_upload' => 'nullable|image|mimes:jpeg,jpg,png,gif,svg|max:2048', // Upload ảnh mới (tối đa 2MB)
             'file' => 'nullable|file|mimes:zip,rar,tar,gz|max:102400', // File không bắt buộc, chỉ nhận zip/rar/tar/gz, tối đa 100MB
             'download_link' => 'nullable|url', // Link download không bắt buộc, phải là URL hợp lệ
         ]);
@@ -75,29 +74,15 @@ class SourceCodeController extends Controller
             $filePath = $file->storeAs('source-code', $fileName, 'public');
         }
 
-        // Xử lý upload ảnh nếu có
+        // Xử lý ảnh từ danh sách có sẵn
         $imagePath = null;
-        if ($request->hasFile('image_upload')) {
-            $image = $request->file('image_upload'); // Lấy ảnh từ request
-            // Tạo tên file mới: timestamp + tên file gốc (để tránh trùng lặp)
-            $imageName = time() . '_' . $image->getClientOriginalName();
-            // Tạo folder nếu chưa có
-            $imagesPath = public_path('images/sourcecode');
-            if (!is_dir($imagesPath)) {
-                mkdir($imagesPath, 0755, true);
-            }
-            // Lưu ảnh vào public/images/sourcecode
-            $image->move($imagesPath, $imageName);
-            $imagePath = 'images/sourcecode/' . $imageName;
-        } elseif ($request->image) {
-            // Nếu chọn ảnh từ danh sách có sẵn
-            $imagePath = $request->image;
+        if ($request->image) {
             // Chuyển đổi đường dẫn ảnh về định dạng storage (images/sourcecode/filename.jpg)
-            if (strpos($imagePath, '/images/sourcecode/') !== false) {
-                $imagePath = 'images/sourcecode/' . basename($imagePath);
-            } elseif (strpos($imagePath, '/images/') !== false) {
+            if (strpos($request->image, '/images/sourcecode/') !== false) {
+                $imagePath = 'images/sourcecode/' . basename($request->image);
+            } elseif (strpos($request->image, '/images/') !== false) {
                 // Fallback: nếu là ảnh cũ từ folder images/ thì chuyển sang sourcecode
-                $imagePath = 'images/sourcecode/' . basename($imagePath);
+                $imagePath = 'images/sourcecode/' . basename($request->image);
             }
         }
 
@@ -153,7 +138,6 @@ class SourceCodeController extends Controller
             'category' => 'nullable|string|max:100', // Danh mục không bắt buộc, tối đa 100 ký tự
             'price' => 'required|numeric|min:0', // Giá bắt buộc, phải là số >= 0
             'image' => 'nullable|string', // Ảnh không bắt buộc (chọn từ danh sách)
-            'image_upload' => 'nullable|image|mimes:jpeg,jpg,png,gif,svg|max:2048', // Upload ảnh mới (tối đa 2MB)
             'file' => 'nullable|file|mimes:zip,rar,tar,gz|max:102400', // File không bắt buộc, chỉ nhận zip/rar/tar/gz, tối đa 100MB
             'download_link' => 'nullable|url', // Link download không bắt buộc, phải là URL hợp lệ
         ]);
@@ -175,34 +159,15 @@ class SourceCodeController extends Controller
             $filePath = $file->storeAs('source-code', $fileName, 'public');
         }
 
-        // Xử lý upload ảnh mới nếu có
+        // Xử lý ảnh từ danh sách có sẵn
         $imagePath = $sourceCode->image; // Giữ nguyên ảnh cũ
-        if ($request->hasFile('image_upload')) {
-            // Xóa ảnh cũ nếu tồn tại
-            if ($sourceCode->image && file_exists(public_path($sourceCode->image))) {
-                unlink(public_path($sourceCode->image));
-            }
-            
-            $image = $request->file('image_upload'); // Lấy ảnh từ request
-            // Tạo tên file mới: timestamp + tên file gốc (để tránh trùng lặp)
-            $imageName = time() . '_' . $image->getClientOriginalName();
-            // Tạo folder nếu chưa có
-            $imagesPath = public_path('images/sourcecode');
-            if (!is_dir($imagesPath)) {
-                mkdir($imagesPath, 0755, true);
-            }
-            // Lưu ảnh vào public/images/sourcecode
-            $image->move($imagesPath, $imageName);
-            $imagePath = 'images/sourcecode/' . $imageName;
-        } elseif ($request->image) {
-            // Nếu chọn ảnh từ danh sách có sẵn
-            $imagePath = $request->image;
+        if ($request->image) {
             // Chuyển đổi đường dẫn ảnh về định dạng storage (images/sourcecode/filename.jpg)
-            if (strpos($imagePath, '/images/sourcecode/') !== false) {
-                $imagePath = 'images/sourcecode/' . basename($imagePath);
-            } elseif (strpos($imagePath, '/images/') !== false) {
+            if (strpos($request->image, '/images/sourcecode/') !== false) {
+                $imagePath = 'images/sourcecode/' . basename($request->image);
+            } elseif (strpos($request->image, '/images/') !== false) {
                 // Fallback: nếu là ảnh cũ từ folder images/ thì chuyển sang sourcecode
-                $imagePath = 'images/sourcecode/' . basename($imagePath);
+                $imagePath = 'images/sourcecode/' . basename($request->image);
             }
         }
 

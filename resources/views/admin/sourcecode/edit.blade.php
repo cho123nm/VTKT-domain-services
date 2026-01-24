@@ -38,30 +38,24 @@
                 </div>
                 <div class="form-inline mt-5">
                     <label for="image" class="form-label sm:w-20"> Hình Ảnh </label>
-                    <div class="w-full">
-                        <div class="mb-3">
-                            <input id="image_upload" type="file" name="image_upload" class="form-control" accept="image/*" onchange="previewUploadedImage(event)">
-                            <small class="text-muted">Hoặc chọn ảnh có sẵn bên dưới</small>
-                        </div>
-                        <div class="flex items-center space-x-3">
-                            <select id="image-select" class="form-control" name="image" onchange="updateImagePreview()">
-                                <option value="">-- Chọn hình ảnh có sẵn --</option>
-                                @foreach($availableImages as $img)
-                                    @php
-                                        $imgPath = '/images/sourcecode/' . $img;
-                                        $currentImage = old('image', $sourceCode->image);
-                                        $isSelected = $currentImage == $imgPath || 
-                                                      $currentImage == 'images/sourcecode/' . $img ||
-                                                      $currentImage == '/images/sourcecode/' . $img;
-                                    @endphp
-                                    <option value="{{ $imgPath }}" {{ $isSelected ? 'selected' : '' }}>
-                                        {{ $img }}
-                                    </option>
-                                @endforeach
-                            </select>
-                            <div id="image-preview" class="ml-3">
-                                <img id="preview-img" src="{{ fixImagePath(old('image', $sourceCode->image ?? '')) }}" alt="Preview" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px;">
-                            </div>
+                    <div class="flex items-center space-x-3">
+                        <select id="image-select" class="form-control" name="image" onchange="updateImagePreview()">
+                            <option value="">-- Chọn hình ảnh có sẵn --</option>
+                            @foreach($availableImages as $img)
+                                @php
+                                    $imgPath = '/images/sourcecode/' . $img;
+                                    $currentImage = old('image', $sourceCode->image);
+                                    $isSelected = $currentImage == $imgPath || 
+                                                  $currentImage == 'images/sourcecode/' . $img ||
+                                                  $currentImage == '/images/sourcecode/' . $img;
+                                @endphp
+                                <option value="{{ $imgPath }}" {{ $isSelected ? 'selected' : '' }}>
+                                    {{ $img }}
+                                </option>
+                            @endforeach
+                        </select>
+                        <div id="image-preview" class="ml-3">
+                            <img id="preview-img" src="{{ fixImagePath(old('image', $sourceCode->image ?? '')) }}" alt="Preview" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px;">
                         </div>
                     </div>
                 </div>
@@ -90,37 +84,10 @@ function updateImagePreview() {
     const select = document.getElementById('image-select');
     const preview = document.getElementById('image-preview');
     const previewImg = document.getElementById('preview-img');
-    const uploadInput = document.getElementById('image_upload');
     
     if (select.value) {
         previewImg.src = select.value;
         preview.style.display = 'block';
-        // Clear upload input when selecting from list
-        if (uploadInput) {
-            uploadInput.value = '';
-        }
-    } else {
-        preview.style.display = 'none';
-    }
-}
-
-function previewUploadedImage(event) {
-    const file = event.target.files[0];
-    const preview = document.getElementById('image-preview');
-    const previewImg = document.getElementById('preview-img');
-    const select = document.getElementById('image-select');
-    
-    if (file) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            previewImg.src = e.target.result;
-            preview.style.display = 'block';
-        };
-        reader.readAsDataURL(file);
-        // Clear select when uploading
-        if (select) {
-            select.value = '';
-        }
     } else {
         preview.style.display = 'none';
     }
