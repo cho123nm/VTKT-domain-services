@@ -15,6 +15,9 @@ class Domain extends Model
     // Tên bảng trong database (khác với tên class)
     protected $table = 'listdomain';
     
+    // Tắt timestamps vì bảng không có cột created_at và updated_at
+    public $timestamps = false;
+    
     // Các cột có thể được mass assignment (gán hàng loạt)
     protected $fillable = [
         'image', // Đường dẫn ảnh đại diện cho loại domain

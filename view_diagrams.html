@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>THANHVU.NET V4 - ERD & Use Case Diagrams</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #4CAF50;
+            padding-bottom: 10px;
+            margin-bottom: 30px;
+        }
+        h2 {
+            color: #555;
+            margin-top: 40px;
+            margin-bottom: 20px;
+            padding: 10px;
+            background: #e8f5e9;
+            border-left: 4px solid #4CAF50;
+        }
+        .diagram-container {
+            background: white;
+            padding: 30px;
+            margin: 20px 0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            overflow-x: auto;
+            min-height: 600px;
+        }
+        .mermaid {
+            text-align: center;
+            min-height: 500px;
+        }
+        .note {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 THANHVU.NET V4 - Database ERD & Use Case Diagrams</h1>
+        
+        <div class="note">
+            <strong>💡 Lưu ý:</strong> Các diagram được vẽ theo chuẩn UML với hình người (actor), hình bầu dục (use case), và các hình học (ERD). Nếu không hiển thị, vui lòng kiểm tra kết nối internet.
+        </div>
+
+        <h2>1. ERD - Entity Relationship Diagram (Hình học)</h2>
+        <div class="diagram-container">
+            <div class="mermaid">
+erDiagram
+    USERS {
+        bigint id PK "Primary Key"
+        string taikhoan "Username"
+        string matkhau "Password MD5"
+        string email "Email"
+        integer tien "Balance"
+        integer chucvu "Role: 0=User, 1=Admin"
+        string time "Registration"
+    }
+    
+    LISTDOMAIN {
+        bigint id PK "Primary Key"
+        string duoi "Extension"
+        integer price "Price"
+        string image "Image"
+    }
+    
+    LISTHOSTING {
+        bigint id PK "Primary Key"
+        string name "Name"
+        integer price_month "Monthly Price"
+        integer price_year "Yearly Price"
+        text description "Description"
+        text specs "Specs"
+        string image "Image"
+    }
+    
+    LISTVPS {
+        bigint id PK "Primary Key"
+        string name "Name"
+        integer price_month "Monthly Price"
+        integer price_year "Yearly Price"
+        text description "Description"
+        text specs "Specs"
+        string image "Image"
+    }
+    
+    LISTSOURCECODE {
+        bigint id PK "Primary Key"
+        string name "Name"
+        integer price "Price"
+        text description "Description"
+        string file_path "File Path"
+        string image "Image"
+    }
+    
+    HISTORY {
+        bigint id PK "Primary Key"
+        bigint uid FK "User ID"
+        string domain "Domain Name"
+        string ns1 "Nameserver 1"
+        string ns2 "Nameserver 2"
+        integer hsd "Expiry Years"
+        integer status "Status"
+        string mgd "Transaction ID"
+        string time "Order Time"
+    }
+    
+    HOSTINGHISTORY {
+        bigint id PK "Primary Key"
+        bigint uid FK "User ID"
+        bigint hosting_id FK "Hosting ID"
+        string period "Period"
+        string mgd "Transaction ID"
+        integer status "Status"
+        string time "Order Time"
+    }
+    
+    VPSHISTORY {
+        bigint id PK "Primary Key"
+        bigint uid FK "User ID"
+        bigint vps_id FK "VPS ID"
+        string period "Period"
+        string mgd "Transaction ID"
+        integer status "Status"
+        string time "Order Time"
+    }
+    
+    SOURCECODEHISTORY {
+        bigint id PK "Primary Key"
+        bigint uid FK "User ID"
+        bigint source_code_id FK "Source Code ID"
+        string mgd "Transaction ID"
+        integer status "Status"
+        string time "Order Time"
+    }
+    
+    CARDS {
+        bigint id PK "Primary Key"
+        bigint uid FK "User ID"
+        string pin "Card PIN"
+        string serial "Card Serial"
+        string type "Card Type"
+        string amount "Amount"
+        string requestid "Request ID"
+        integer status "Status"
+        string time "Time"
+    }
+    
+    FEEDBACK {
+        bigint id PK "Primary Key"
+        bigint uid FK "User ID"
+        string username "Username"
+        string email "Email"
+        text message "Message"
+        text admin_reply "Admin Reply"
+        integer status "Status"
+        string time "Time"
+    }
+    
+    CAIDATCHUNG {
+        bigint id PK "Primary Key"
+        string tieude "Title"
+        string theme "Theme"
+        text keywords "Keywords"
+        text mota "Description"
+        string apikey "API Key"
+        string telegram_bot_token "Telegram Token"
+    }
+    
+    USERS ||--o{ HISTORY : "places"
+    USERS ||--o{ HOSTINGHISTORY : "places"
+    USERS ||--o{ VPSHISTORY : "places"
+    USERS ||--o{ SOURCECODEHISTORY : "places"
+    USERS ||--o{ CARDS : "recharges"
+    USERS ||--o{ FEEDBACK : "sends"
+    
+    LISTHOSTING ||--o{ HOSTINGHISTORY : "ordered"
+    LISTVPS ||--o{ VPSHISTORY : "ordered"
+    LISTSOURCECODE ||--o{ SOURCECODEHISTORY : "ordered"
+            </div>
+        </div>
+
+        <h2>2. Use Case Diagram - Khách Hàng Tiềm Năng (Chưa đăng ký)</h2>
+        <div class="diagram-container">
+            <div class="mermaid">
+graph TB
+    Guest((👤 Khách Hàng<br/>Tiềm Năng))
+    
+    UC1([Xem trang chủ])
+    UC2([Kiểm tra domain WHOIS])
+    UC3([Xem danh sách hosting])
+    UC4([Xem danh sách VPS])
+    UC5([Xem danh sách source code])
+    UC6([Đăng ký tài khoản])
+    UC7([Đăng nhập])
+    UC8([Quên mật khẩu])
+    
+    Guest --> UC1
+    Guest --> UC2
+    Guest --> UC3
+    Guest --> UC4
+    Guest --> UC5
+    Guest --> UC6
+    Guest --> UC7
+    Guest --> UC8
+    
+    UC6 -.->|sau đó| UC7
+    
+    style Guest fill:#ff9800,stroke:#f57c00,stroke-width:3px,color:#fff
+    style UC1 fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    style UC2 fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    style UC3 fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    style UC4 fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    style UC5 fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+    style UC6 fill:#e1f5fe,stroke:#0277bd,stroke-width:2px
+    style UC7 fill:#e1f5fe,stroke:#0277bd,stroke-width:2px
+    style UC8 fill:#e1f5fe,stroke:#0277bd,stroke-width:2px
+            </div>
+        </div>
+
+        <h2>3. Use Case Diagram - Khách Hàng Thành Viên (Đã đăng nhập)</h2>
+        <div class="diagram-container">
+            <div class="mermaid">
+graph TB
+    Member((👤 Khách Hàng<br/>Thành Viên))
+    
+    Login([Đăng nhập])
+    
+    UC1([Xem profile])
+    UC2([Cập nhật profile])
+    UC3([Đăng xuất])
+    
+    UC4([Mua domain])
+    UC5([Quản lý DNS])
+    UC6([Cập nhật DNS])
+    
+    UC7([Mua hosting])
+    UC8([Xem lịch sử hosting])
+    
+    UC9([Mua VPS])
+    UC10([Xem lịch sử VPS])
+    
+    UC11([Mua source code])
+    UC12([Download source code])
+    UC13([Xem lịch sử source code])
+    
+    UC14([Nạp tiền bằng thẻ cào])
+    UC15([Xem số dư])
+    
+    UC16([Gửi phản hồi])
+    UC17([Xem phản hồi đã gửi])
+    UC18([Xem tin nhắn từ admin])
+    UC19([Liên hệ admin])
+    
+    Member --> Login
+    Login -.->|requires| UC1
+    Login -.->|requires| UC2
+    Login -.->|requires| UC3
+    Login -.->|requires| UC4
+    Login -.->|requires| UC5
+    Login -.->|requires| UC6
+    Login -.->|requires| UC7
+    Login -.->|requires| UC8
+    Login -.->|requires| UC9
+    Login -.->|requires| UC10
+    Login -.->|requires| UC11
+    Login -.->|requires| UC12
+    Login -.->|requires| UC13
+    Login -.->|requires| UC14
+    Login -.->|requires| UC15
+    Login -.->|requires| UC16
+    Login -.->|requires| UC17
+    Login -.->|requires| UC18
+    Login -.->|requires| UC19
+    
+    UC4 -.->|requires| UC15
+    UC7 -.->|requires| UC15
+    UC9 -.->|requires| UC15
+    UC11 -.->|requires| UC15
+    
+    style Member fill:#4CAF50,stroke:#2e7d32,stroke-width:3px,color:#fff
+    style Login fill:#e1f5fe,stroke:#0277bd,stroke-width:3px
+    style UC1 fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    style UC2 fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    style UC3 fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    style UC4 fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    style UC5 fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    style UC6 fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    style UC7 fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    style UC8 fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    style UC9 fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    style UC10 fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    style UC11 fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+    style UC12 fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+    style UC13 fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+    style UC14 fill:#ffebee,stroke:#c62828,stroke-width:2px
+    style UC15 fill:#ffebee,stroke:#c62828,stroke-width:2px
+    style UC16 fill:#e0f2f1,stroke:#00695c,stroke-width:2px
+    style UC17 fill:#e0f2f1,stroke:#00695c,stroke-width:2px
+    style UC18 fill:#e0f2f1,stroke:#00695c,stroke-width:2px
+            </div>
+        </div>
+
+        <h2>4. Use Case Diagram - Admin (Phải đăng nhập trước)</h2>
+        <div class="diagram-container">
+            <div class="mermaid">
+graph TB
+    Admin((👨‍💼 Admin))
+    
+    AdminLogin([Đăng nhập admin])
+    AdminLogout([Đăng xuất admin])
+    
+    UC1([Xem dashboard])
+    UC2([Quản lý domain])
+    UC3([Quản lý hosting])
+    UC4([Quản lý VPS])
+    UC5([Quản lý source code])
+    
+    UC6([Xem đơn hàng])
+    UC7([Duyệt đơn hàng])
+    UC8([Từ chối đơn hàng])
+    UC9([Xem chi tiết đơn hàng])
+    
+    UC10([Xem yêu cầu DNS])
+    UC11([Duyệt cập nhật DNS])
+    UC12([Từ chối yêu cầu DNS])
+    
+    UC13([Quản lý thành viên])
+    UC14([Xem chi tiết thành viên])
+    UC15([Cộng/Trừ tiền thủ công])
+    
+    UC16([Xem danh sách thẻ cào])
+    UC17([Duyệt thẻ cào])
+    UC18([Từ chối thẻ cào])
+    
+    UC19([Xem danh sách phản hồi])
+    UC20([Trả lời phản hồi])
+    
+    UC21([Cài đặt website])
+    UC22([Cài đặt Telegram])
+    UC23([Cài đặt Payment Gateway])
+    
+    Admin --> AdminLogin
+    Admin --> AdminLogout
+    
+    AdminLogin -.->|requires| UC1
+    AdminLogin -.->|requires| UC2
+    AdminLogin -.->|requires| UC3
+    AdminLogin -.->|requires| UC4
+    AdminLogin -.->|requires| UC5
+    AdminLogin -.->|requires| UC6
+    AdminLogin -.->|requires| UC7
+    AdminLogin -.->|requires| UC8
+    AdminLogin -.->|requires| UC9
+    AdminLogin -.->|requires| UC10
+    AdminLogin -.->|requires| UC11
+    AdminLogin -.->|requires| UC12
+    AdminLogin -.->|requires| UC13
+    AdminLogin -.->|requires| UC14
+    AdminLogin -.->|requires| UC15
+    AdminLogin -.->|requires| UC16
+    AdminLogin -.->|requires| UC17
+    AdminLogin -.->|requires| UC18
+    AdminLogin -.->|requires| UC19
+    AdminLogin -.->|requires| UC20
+    AdminLogin -.->|requires| UC21
+    AdminLogin -.->|requires| UC22
+    AdminLogin -.->|requires| UC23
+    
+    UC6 -.->|extends| UC7
+    UC6 -.->|extends| UC8
+    UC6 -.->|extends| UC9
+    UC10 -.->|extends| UC11
+    UC10 -.->|extends| UC12
+    UC13 -.->|includes| UC14
+    UC13 -.->|includes| UC15
+    UC16 -.->|extends| UC17
+    UC16 -.->|extends| UC18
+    UC19 -.->|extends| UC20
+    
+    style Admin fill:#d32f2f,stroke:#b71c1c,stroke-width:3px,color:#fff
+    style AdminLogin fill:#ffebee,stroke:#c62828,stroke-width:3px
+    style AdminLogout fill:#ffebee,stroke:#c62828,stroke-width:2px
+    style UC1 fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    style UC2 fill:#e1f5fe,stroke:#0277bd,stroke-width:2px
+    style UC3 fill:#e1f5fe,stroke:#0277bd,stroke-width:2px
+    style UC4 fill:#e1f5fe,stroke:#0277bd,stroke-width:2px
+    style UC5 fill:#e1f5fe,stroke:#0277bd,stroke-width:2px
+    style UC6 fill:#fff9c4,stroke:#f57f17,stroke-width:2px
+    style UC7 fill:#fff9c4,stroke:#f57f17,stroke-width:2px
+    style UC8 fill:#fff9c4,stroke:#f57f17,stroke-width:2px
+    style UC9 fill:#fff9c4,stroke:#f57f17,stroke-width:2px
+    style UC10 fill:#f1f8e9,stroke:#558b2f,stroke-width:2px
+    style UC11 fill:#f1f8e9,stroke:#558b2f,stroke-width:2px
+    style UC12 fill:#f1f8e9,stroke:#558b2f,stroke-width:2px
+    style UC13 fill:#fce4ec,stroke:#c2185b,stroke-width:2px
+    style UC14 fill:#fce4ec,stroke:#c2185b,stroke-width:2px
+    style UC15 fill:#fce4ec,stroke:#c2185b,stroke-width:2px
+    style UC16 fill:#e8eaf6,stroke:#3f51b5,stroke-width:2px
+    style UC17 fill:#e8eaf6,stroke:#3f51b5,stroke-width:2px
+    style UC18 fill:#e8eaf6,stroke:#3f51b5,stroke-width:2px
+    style UC19 fill:#e0f7fa,stroke:#00838f,stroke-width:2px
+    style UC20 fill:#e0f7fa,stroke:#00838f,stroke-width:2px
+    style UC21 fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    style UC22 fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    style UC23 fill:#fff3e0,stroke:#e65100,stroke-width:2px
+            </div>
+        </div>
+
+        <div class="note" style="margin-top: 40px;">
+            <strong>📝 Giải thích ký hiệu:</strong>
+            <ul>
+                <li><strong>Hình tròn đôi ((👤)):</strong> Actor (Người dùng/Admin)</li>
+                <li><strong>Hình bầu dục ([...]):</strong> Use Case (Chức năng)</li>
+                <li><strong>Mũi tên đứt nét (-.->) với "requires":</strong> Điều kiện bắt buộc (phải đăng nhập trước)</li>
+                <li><strong>Mũi tên đứt nét (-.->) với "extends":</strong> Mở rộng chức năng</li>
+                <li><strong>Mũi tên đứt nét (-.->) với "includes":</strong> Bao gồm chức năng</li>
+                <li><strong>Mũi tên liền (-->):</strong> Association (Kết nối trực tiếp)</li>
+                <li><strong>ERD:</strong> Hình chữ nhật = Entity (Bảng), Mũi tên = Relationship (Mối quan hệ)</li>
+            </ul>
+            <strong>🎯 Quy trình:</strong>
+            <ul>
+                <li><strong>Khách hàng tiềm năng:</strong> Chỉ xem và đăng ký, chưa có quyền mua hàng</li>
+                <li><strong>Khách hàng thành viên:</strong> Phải đăng nhập trước, sau đó mới có thể mua hàng và quản lý</li>
+                <li><strong>Admin:</strong> Phải đăng nhập admin trước, sau đó mới có thể truy cập tất cả chức năng quản lý</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        mermaid.initialize({ 
+            startOnLoad: true,
+            theme: 'default',
+            flowchart: {
+                useMaxWidth: false,
+                htmlLabels: true,
+                curve: 'basis',
+                padding: 20
+            },
+            er: {
+                fontSize: 14,
+                layoutDirection: 'TB'
+            }
+        });
+    </script>
+</body>
+</html>

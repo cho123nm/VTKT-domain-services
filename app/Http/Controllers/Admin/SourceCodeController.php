@@ -31,31 +31,15 @@ class SourceCodeController extends Controller
 
     /**
      * Hiển thị form thêm source code mới
-     * Lấy danh sách ảnh có sẵn trong thư mục images để admin chọn
+     * Lấy danh sách ảnh có sẵn trong thư mục images/sourcecode để admin chọn
      * 
      * @return \Illuminate\View\View - View form thêm source code
      */
     public function create()
     {
-        // Lấy danh sách ảnh có sẵn từ thư mục images
-        $imagesPath = public_path('images');
-        // Mảng để lưu danh sách ảnh có sẵn
-        $availableImages = [];
-        
-        // Kiểm tra thư mục images có tồn tại không
-        if (is_dir($imagesPath)) {
-            // Quét tất cả file trong thư mục
-            $files = scandir($imagesPath);
-            // Duyệt qua từng file
-            foreach ($files as $file) {
-                // Bỏ qua các file đặc biệt (. và ..) và chỉ lấy file ảnh
-                if ($file != '.' && $file != '..' && preg_match('/\.(jpg|jpeg|png|gif|svg)$/i', $file)) {
-                    $availableImages[] = $file; // Thêm vào danh sách
-                }
-            }
-        }
-        
-        // Trả về view với danh sách ảnh có sẵn
+        // Lấy danh sách ảnh có sẵn từ phương thức getAvailableImages()
+        $availableImages = $this->getAvailableImages();
+        // Trả về view với danh sách ảnh
         return view('admin.sourcecode.create', compact('availableImages'));
     }
 
@@ -73,7 +57,8 @@ class SourceCodeController extends Controller
             'description' => 'nullable|string', // Mô tả không bắt buộc
             'category' => 'nullable|string|max:100', // Danh mục không bắt buộc, tối đa 100 ký tự
             'price' => 'required|numeric|min:0', // Giá bắt buộc, phải là số >= 0
-            'image' => 'nullable|string', // Ảnh không bắt buộc
+            'image' => 'nullable|string', // Ảnh không bắt buộc (chọn từ danh sách)
+            'image_upload' => 'nullable|image|mimes:jpeg,jpg,png,gif,svg|max:2048', // Upload ảnh mới (tối đa 2MB)
             'file' => 'nullable|file|mimes:zip,rar,tar,gz|max:102400', // File không bắt buộc, chỉ nhận zip/rar/tar/gz, tối đa 100MB
             'download_link' => 'nullable|url', // Link download không bắt buộc, phải là URL hợp lệ
         ]);
@@ -90,13 +75,39 @@ class SourceCodeController extends Controller
             $filePath = $file->storeAs('source-code', $fileName, 'public');
         }
 
+        // Xử lý upload ảnh nếu có
+        $imagePath = null;
+        if ($request->hasFile('image_upload')) {
+            $image = $request->file('image_upload'); // Lấy ảnh từ request
+            // Tạo tên file mới: timestamp + tên file gốc (để tránh trùng lặp)
+            $imageName = time() . '_' . $image->getClientOriginalName();
+            // Tạo folder nếu chưa có
+            $imagesPath = public_path('images/sourcecode');
+            if (!is_dir($imagesPath)) {
+                mkdir($imagesPath, 0755, true);
+            }
+            // Lưu ảnh vào public/images/sourcecode
+            $image->move($imagesPath, $imageName);
+            $imagePath = 'images/sourcecode/' . $imageName;
+        } elseif ($request->image) {
+            // Nếu chọn ảnh từ danh sách có sẵn
+            $imagePath = $request->image;
+            // Chuyển đổi đường dẫn ảnh về định dạng storage (images/sourcecode/filename.jpg)
+            if (strpos($imagePath, '/images/sourcecode/') !== false) {
+                $imagePath = 'images/sourcecode/' . basename($imagePath);
+            } elseif (strpos($imagePath, '/images/') !== false) {
+                // Fallback: nếu là ảnh cũ từ folder images/ thì chuyển sang sourcecode
+                $imagePath = 'images/sourcecode/' . basename($imagePath);
+            }
+        }
+
         // Tạo source code mới trong database
         SourceCode::create([
             'name' => $request->name, // Tên source code
             'description' => $request->description, // Mô tả
             'category' => $request->category, // Danh mục
             'price' => $request->price, // Giá
-            'image' => $request->image ? 'images/' . basename($request->image) : null, // Đường dẫn ảnh (chỉ lấy tên file)
+            'image' => $imagePath, // Đường dẫn ảnh
             'file_path' => $filePath, // Đường dẫn file trong storage
             'download_link' => $request->download_link, // Link download
             'time' => date('d/m/Y - H:i:s'), // Thời gian tạo (định dạng Việt Nam)
@@ -117,25 +128,8 @@ class SourceCodeController extends Controller
     {
         // Tìm source code theo ID, nếu không tìm thấy thì throw 404
         $sourceCode = SourceCode::findOrFail($id);
-        
-        // Lấy danh sách ảnh có sẵn từ thư mục images
-        $imagesPath = public_path('images');
-        // Mảng để lưu danh sách ảnh có sẵn
-        $availableImages = [];
-        
-        // Kiểm tra thư mục images có tồn tại không
-        if (is_dir($imagesPath)) {
-            // Quét tất cả file trong thư mục
-            $files = scandir($imagesPath);
-            // Duyệt qua từng file
-            foreach ($files as $file) {
-                // Bỏ qua các file đặc biệt (. và ..) và chỉ lấy file ảnh
-                if ($file != '.' && $file != '..' && preg_match('/\.(jpg|jpeg|png|gif|svg)$/i', $file)) {
-                    $availableImages[] = $file; // Thêm vào danh sách
-                }
-            }
-        }
-        
+        // Lấy danh sách ảnh có sẵn từ phương thức getAvailableImages()
+        $availableImages = $this->getAvailableImages();
         // Trả về view với dữ liệu source code và danh sách ảnh
         return view('admin.sourcecode.edit', compact('sourceCode', 'availableImages'));
     }
@@ -158,7 +152,8 @@ class SourceCodeController extends Controller
             'description' => 'nullable|string', // Mô tả không bắt buộc
             'category' => 'nullable|string|max:100', // Danh mục không bắt buộc, tối đa 100 ký tự
             'price' => 'required|numeric|min:0', // Giá bắt buộc, phải là số >= 0
-            'image' => 'nullable|string', // Ảnh không bắt buộc
+            'image' => 'nullable|string', // Ảnh không bắt buộc (chọn từ danh sách)
+            'image_upload' => 'nullable|image|mimes:jpeg,jpg,png,gif,svg|max:2048', // Upload ảnh mới (tối đa 2MB)
             'file' => 'nullable|file|mimes:zip,rar,tar,gz|max:102400', // File không bắt buộc, chỉ nhận zip/rar/tar/gz, tối đa 100MB
             'download_link' => 'nullable|url', // Link download không bắt buộc, phải là URL hợp lệ
         ]);
@@ -180,13 +175,44 @@ class SourceCodeController extends Controller
             $filePath = $file->storeAs('source-code', $fileName, 'public');
         }
 
+        // Xử lý upload ảnh mới nếu có
+        $imagePath = $sourceCode->image; // Giữ nguyên ảnh cũ
+        if ($request->hasFile('image_upload')) {
+            // Xóa ảnh cũ nếu tồn tại
+            if ($sourceCode->image && file_exists(public_path($sourceCode->image))) {
+                unlink(public_path($sourceCode->image));
+            }
+            
+            $image = $request->file('image_upload'); // Lấy ảnh từ request
+            // Tạo tên file mới: timestamp + tên file gốc (để tránh trùng lặp)
+            $imageName = time() . '_' . $image->getClientOriginalName();
+            // Tạo folder nếu chưa có
+            $imagesPath = public_path('images/sourcecode');
+            if (!is_dir($imagesPath)) {
+                mkdir($imagesPath, 0755, true);
+            }
+            // Lưu ảnh vào public/images/sourcecode
+            $image->move($imagesPath, $imageName);
+            $imagePath = 'images/sourcecode/' . $imageName;
+        } elseif ($request->image) {
+            // Nếu chọn ảnh từ danh sách có sẵn
+            $imagePath = $request->image;
+            // Chuyển đổi đường dẫn ảnh về định dạng storage (images/sourcecode/filename.jpg)
+            if (strpos($imagePath, '/images/sourcecode/') !== false) {
+                $imagePath = 'images/sourcecode/' . basename($imagePath);
+            } elseif (strpos($imagePath, '/images/') !== false) {
+                // Fallback: nếu là ảnh cũ từ folder images/ thì chuyển sang sourcecode
+                $imagePath = 'images/sourcecode/' . basename($imagePath);
+            }
+        }
+
         // Cập nhật source code trong database
         $sourceCode->update([
             'name' => $request->name, // Tên source code
             'description' => $request->description, // Mô tả
             'category' => $request->category, // Danh mục
             'price' => $request->price, // Giá
-            'image' => $request->image ? 'images/' . basename($request->image) : $sourceCode->image, // Đường dẫn ảnh (nếu có thì cập nhật, không thì giữ nguyên)
+            'image' => $imagePath, // Đường dẫn ảnh
             'file_path' => $filePath, // Đường dẫn file trong storage
             'download_link' => $request->download_link, // Link download
         ]);
@@ -219,5 +245,40 @@ class SourceCodeController extends Controller
         // Redirect về danh sách source code với thông báo thành công
         return redirect()->route('admin.sourcecode.index')
             ->with('success', 'Source code đã được xóa thành công!');
+    }
+
+    /**
+     * Lấy danh sách hình ảnh có sẵn trong thư mục images/sourcecode
+     * Private method - chỉ được gọi từ trong class này
+     * 
+     * @return array - Mảng chứa tên các file ảnh
+     */
+    private function getAvailableImages()
+    {
+        // Đường dẫn đến thư mục images/sourcecode trong public
+        $imagesPath = public_path('images/sourcecode');
+        // Mảng để lưu danh sách ảnh có sẵn
+        $availableImages = [];
+        
+        // Tạo folder nếu chưa có (quyền 0755, tạo recursive)
+        if (!is_dir($imagesPath)) {
+            mkdir($imagesPath, 0755, true);
+        }
+        
+        // Kiểm tra thư mục images/sourcecode có tồn tại không
+        if (is_dir($imagesPath)) {
+            // Quét tất cả file trong thư mục
+            $files = scandir($imagesPath);
+            // Duyệt qua từng file
+            foreach ($files as $file) {
+                // Bỏ qua các file đặc biệt (. và ..) và chỉ lấy file ảnh
+                if ($file != '.' && $file != '..' && preg_match('/\.(jpg|jpeg|png|gif|svg)$/i', $file)) {
+                    $availableImages[] = $file; // Thêm vào danh sách
+                }
+            }
+        }
+        
+        // Trả về danh sách ảnh
+        return $availableImages;
     }
 }

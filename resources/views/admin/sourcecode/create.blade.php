@@ -37,17 +37,23 @@
                 </div>
                 <div class="form-inline mt-5">
                     <label for="image" class="form-label sm:w-20"> Hình Ảnh </label>
-                    <div class="flex items-center space-x-3 w-full">
-                        <select id="image-select" class="form-control" name="image" onchange="updateImagePreview()">
-                            <option value="">-- Chọn hình ảnh --</option>
-                            @foreach($availableImages as $img)
-                                <option value="/domain/images/{{ $img }}" {{ old('image') == '/domain/images/' . $img ? 'selected' : '' }}>
-                                    {{ $img }}
-                                </option>
-                            @endforeach
-                        </select>
-                        <div id="image-preview" class="ml-3" style="display: {{ old('image') ? 'block' : 'none' }};">
-                            <img id="preview-img" src="{{ old('image') }}" alt="Preview" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px;">
+                    <div class="w-full">
+                        <div class="mb-3">
+                            <input id="image_upload" type="file" name="image_upload" class="form-control" accept="image/*" onchange="previewUploadedImage(event)">
+                            <small class="text-muted">Hoặc chọn ảnh có sẵn bên dưới</small>
+                        </div>
+                        <div class="flex items-center space-x-3">
+                            <select id="image-select" class="form-control" name="image" onchange="updateImagePreview()">
+                                <option value="">-- Chọn hình ảnh có sẵn --</option>
+                                @foreach($availableImages as $img)
+                                    <option value="/images/sourcecode/{{ $img }}" {{ old('image') == '/images/sourcecode/' . $img ? 'selected' : '' }}>
+                                        {{ $img }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            <div id="image-preview" class="ml-3" @if(!old('image')) style="display: none;" @endif>
+                                <img id="preview-img" src="{{ old('image') && strpos(old('image'), '/images/sourcecode/') !== false ? old('image') : '' }}" alt="Preview" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px;">
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -76,10 +82,37 @@ function updateImagePreview() {
     const select = document.getElementById('image-select');
     const preview = document.getElementById('image-preview');
     const previewImg = document.getElementById('preview-img');
+    const uploadInput = document.getElementById('image_upload');
     
     if (select.value) {
         previewImg.src = select.value;
         preview.style.display = 'block';
+        // Clear upload input when selecting from list
+        if (uploadInput) {
+            uploadInput.value = '';
+        }
+    } else {
+        preview.style.display = 'none';
+    }
+}
+
+function previewUploadedImage(event) {
+    const file = event.target.files[0];
+    const preview = document.getElementById('image-preview');
+    const previewImg = document.getElementById('preview-img');
+    const select = document.getElementById('image-select');
+    
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            previewImg.src = e.target.result;
+            preview.style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+        // Clear select when uploading
+        if (select) {
+            select.value = '';
+        }
     } else {
         preview.style.display = 'none';
     }

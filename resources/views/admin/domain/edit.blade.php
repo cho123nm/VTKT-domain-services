@@ -40,8 +40,14 @@
                         <select id="image-select" class="form-control" name="image" onchange="updateImagePreview()" required>
                             <option value="">-- Chọn hình ảnh --</option>
                             @foreach($availableImages as $img)
-                                <option value="/domain/images/{{ $img }}" 
-                                    {{ ($domain->image == '/domain/images/' . $img || $domain->image == '/images/' . $img) ? 'selected' : '' }}>
+                                @php
+                                    $imgPath = '/images/' . $img;
+                                    $currentImage = old('image', $domain->image);
+                                    $isSelected = $currentImage == $imgPath || 
+                                                  $currentImage == 'images/' . $img ||
+                                                  $currentImage == '/domain/images/' . $img;
+                                @endphp
+                                <option value="{{ $imgPath }}" {{ $isSelected ? 'selected' : '' }}>
                                     {{ $img }}
                                 </option>
                             @endforeach

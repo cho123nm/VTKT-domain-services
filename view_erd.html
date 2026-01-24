@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>THANHVU.NET V4 - ERD Database Schema</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .header {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            text-align: center;
+        }
+        
+        .header h1 {
+            color: #333;
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            color: #666;
+            font-size: 16px;
+        }
+        
+        .controls {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        .btn-primary {
+            background: #4CAF50;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        }
+        
+        .btn-secondary {
+            background: #2196F3;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #0b7dda;
+            transform: translateY(-2px);
+        }
+        
+        .btn-danger {
+            background: #f44336;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #da190b;
+            transform: translateY(-2px);
+        }
+        
+        .zoom-info {
+            padding: 10px 20px;
+            background: #e3f2fd;
+            border-radius: 8px;
+            font-weight: 600;
+            color: #1976d2;
+        }
+        
+        .diagram-wrapper {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            overflow: auto;
+            min-height: 80vh;
+            position: relative;
+        }
+        
+        .diagram-container {
+            width: 100%;
+            min-width: 2000px;
+            min-height: 1500px;
+            padding: 50px;
+            background: #fafafa;
+            border: 2px dashed #ddd;
+            border-radius: 10px;
+            transform-origin: top left;
+            transition: transform 0.3s ease;
+        }
+        
+        .mermaid {
+            font-size: 18px !important;
+            text-align: center;
+        }
+        
+        .stats {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            margin-top: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        .stat-card h3 {
+            font-size: 36px;
+            margin-bottom: 5px;
+        }
+        
+        .stat-card p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        
+        .note {
+            background: #fff3cd;
+            border-left: 5px solid #ffc107;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 10px;
+            font-size: 16px;
+        }
+        
+        .note strong {
+            color: #856404;
+        }
+        
+        @media print {
+            body {
+                background: white;
+            }
+            .controls {
+                display: none;
+            }
+            .diagram-wrapper {
+                overflow: visible;
+            }
+            .diagram-container {
+                transform: scale(1) !important;
+                min-width: auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📊 ERD - Entity Relationship Diagram</h1>
+        <p>Hệ Thống: THANHVU.NET V4 - Quản Lý Dịch Vụ Số</p>
+    </div>
+    
+    <div class="controls">
+        <button class="btn btn-primary" onclick="zoomIn()">🔍 Phóng To (+)</button>
+        <button class="btn btn-primary" onclick="zoomOut()">🔍 Thu Nhỏ (-)</button>
+        <button class="btn btn-secondary" onclick="resetZoom()">🔄 Đặt Lại (100%)</button>
+        <button class="btn btn-secondary" onclick="fitToScreen()">📐 Vừa Màn Hình</button>
+        <div class="zoom-info" id="zoomInfo">Zoom: 100%</div>
+        <button class="btn btn-danger" onclick="window.print()">🖨️ In</button>
+    </div>
+    
+    <div class="note">
+        <strong>💡 Hướng dẫn:</strong> Sử dụng các nút phía trên để phóng to/thu nhỏ diagram. Bạn có thể scroll để xem toàn bộ ERD. Nhấn "In" để xuất ra PDF hoặc in trực tiếp.
+    </div>
+    
+    <div class="diagram-wrapper" id="diagramWrapper">
+        <div class="diagram-container" id="diagramContainer">
+            <div class="mermaid" id="erdDiagram">
+erDiagram
+    USERS ||--o{ HISTORY : "has many"
+    USERS ||--o{ HOSTINGHISTORY : "has many"
+    USERS ||--o{ VPSHISTORY : "has many"
+    USERS ||--o{ SOURCECODEHISTORY : "has many"
+    USERS ||--o{ CARDS : "has many"
+    USERS ||--o{ FEEDBACK : "has many"
+    
+    LISTDOMAIN ||--o{ HISTORY : "references"
+    LISTHOSTING ||--o{ HOSTINGHISTORY : "has many"
+    LISTVPS ||--o{ VPSHISTORY : "has many"
+    LISTSOURCECODE ||--o{ SOURCECODEHISTORY : "has many"
+    
+    USERS {
+        bigint id PK
+        string taikhoan "username"
+        string matkhau "MD5 password"
+        string email
+        integer tien "balance"
+        integer chucvu "0=user, 1=admin"
+        string time "registration time"
+    }
+    
+    LISTDOMAIN {
+        bigint id PK
+        string duoi "domain extension"
+        integer price
+        string image
+    }
+    
+    LISTHOSTING {
+        bigint id PK
+        string name
+        integer price_month
+        integer price_year
+        text description
+        text specs
+        string image
+        string time
+    }
+    
+    LISTVPS {
+        bigint id PK
+        string name
+        integer price_month
+        integer price_year
+        text description
+        text specs
+        string image
+        string time
+    }
+    
+    LISTSOURCECODE {
+        bigint id PK
+        string name
+        integer price
+        text description
+        string file_path
+        string image
+        string category
+        string time
+    }
+    
+    HISTORY {
+        bigint id PK
+        bigint uid FK "user_id"
+        string domain
+        string ns1 "nameserver 1"
+        string ns2 "nameserver 2"
+        integer hsd "expiry years"
+        integer status "0=pending, 1=approved, 2=rejected"
+        string mgd "transaction_id"
+        string time
+        string timedns "DNS update time"
+        integer ahihi "DNS update flag"
+    }
+    
+    HOSTINGHISTORY {
+        bigint id PK
+        bigint uid FK "user_id"
+        bigint hosting_id FK
+        string period "month/year"
+        string mgd "transaction_id"
+        integer status "0=pending, 1=approved"
+        string time
+    }
+    
+    VPSHISTORY {
+        bigint id PK
+        bigint uid FK "user_id"
+        bigint vps_id FK
+        string period "month/year"
+        string mgd "transaction_id"
+        integer status "0=pending, 1=approved"
+        string time
+    }
+    
+    SOURCECODEHISTORY {
+        bigint id PK
+        bigint uid FK "user_id"
+        bigint source_code_id FK
+        string mgd "transaction_id"
+        integer status "0=pending, 1=approved"
+        string time
+    }
+    
+    CARDS {
+        bigint id PK
+        bigint uid FK "user_id"
+        string pin "card pin"
+        string serial "card serial"
+        string type "VIETTEL/VINAPHONE/etc"
+        string amount "card value"
+        string requestid "API request ID"
+        integer status "0=pending, 1=success, 2=failed"
+        string time
+        string time2
+        string time3
+    }
+    
+    FEEDBACK {
+        bigint id PK
+        bigint uid FK "user_id"
+        string username
+        string email
+        text message
+        text admin_reply
+        integer status "0=pending, 1=replied, 2=read"
+        string telegram_chat_id
+        string time
+        string reply_time
+    }
+    
+    CAIDATCHUNG {
+        bigint id PK
+        string tieude "website title"
+        string theme
+        text keywords
+        text mota "description"
+        string imagebanner
+        string sodienthoai "phone"
+        string banner
+        string logo
+        string webgach "favicon"
+        string apikey "CardVIP API key"
+        string callback "callback URL"
+        string facebook_link
+        string zalo_phone
+        string telegram_bot_token
+        string telegram_admin_chat_id
+    }
+    
+    PASSWORDRESETS {
+        string email PK
+        string token
+        timestamp created_at
+    }
+            </div>
+        </div>
+    </div>
+    
+    <div class="stats">
+        <h2 style="color: #333; margin-bottom: 15px;">📊 Thống Kê Database</h2>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h3>13</h3>
+                <p>Bảng (Tables)</p>
+            </div>
+            <div class="stat-card">
+                <h3>10</h3>
+                <p>Mối Quan Hệ (Relationships)</p>
+            </div>
+            <div class="stat-card">
+                <h3>8</h3>
+                <p>Foreign Keys</p>
+            </div>
+            <div class="stat-card">
+                <h3>20+</h3>
+                <p>Indexes</p>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let currentZoom = 1;
+        const zoomStep = 0.1;
+        const minZoom = 0.3;
+        const maxZoom = 3;
+        const diagramContainer = document.getElementById('diagramContainer');
+        const zoomInfo = document.getElementById('zoomInfo');
+        
+        // Initialize Mermaid
+        mermaid.initialize({ 
+            startOnLoad: true,
+            theme: 'default',
+            er: {
+                fontSize: 18,
+                padding: 20
+            }
+        });
+        
+        function updateZoom() {
+            diagramContainer.style.transform = `scale(${currentZoom})`;
+            zoomInfo.textContent = `Zoom: ${Math.round(currentZoom * 100)}%`;
+        }
+        
+        function zoomIn() {
+            if (currentZoom < maxZoom) {
+                currentZoom += zoomStep;
+                updateZoom();
+            }
+        }
+        
+        function zoomOut() {
+            if (currentZoom > minZoom) {
+                currentZoom -= zoomStep;
+                updateZoom();
+            }
+        }
+        
+        function resetZoom() {
+            currentZoom = 1;
+            updateZoom();
+        }
+        
+        function fitToScreen() {
+            const wrapper = document.getElementById('diagramWrapper');
+            const wrapperWidth = wrapper.clientWidth - 100;
+            const wrapperHeight = wrapper.clientHeight - 100;
+            const diagramWidth = 2000;
+            const diagramHeight = 1500;
+            
+            const scaleX = wrapperWidth / diagramWidth;
+            const scaleY = wrapperHeight / diagramHeight;
+            currentZoom = Math.min(scaleX, scaleY, 1);
+            updateZoom();
+        }
+        
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            if (e.ctrlKey || e.metaKey) {
+                if (e.key === '=' || e.key === '+') {
+                    e.preventDefault();
+                    zoomIn();
+                } else if (e.key === '-') {
+                    e.preventDefault();
+                    zoomOut();
+                } else if (e.key === '0') {
+                    e.preventDefault();
+                    resetZoom();
+                }
+            }
+        });
+        
+        // Mouse wheel zoom
+        document.getElementById('diagramWrapper').addEventListener('wheel', function(e) {
+            if (e.ctrlKey || e.metaKey) {
+                e.preventDefault();
+                if (e.deltaY < 0) {
+                    zoomIn();
+                } else {
+                    zoomOut();
+                }
+            }
+        }, { passive: false });
+        
+        // Initial render
+        updateZoom();
+    </script>
+</body>
+</html>
+

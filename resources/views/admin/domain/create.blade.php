@@ -39,7 +39,7 @@
                         <select id="image-select" class="form-control" name="image" onchange="updateImagePreview()" required>
                             <option value="">-- Chọn hình ảnh --</option>
                             @foreach($availableImages as $img)
-                                <option value="/domain/images/{{ $img }}">{{ $img }}</option>
+                                <option value="/images/{{ $img }}">{{ $img }}</option>
                             @endforeach
                         </select>
                         <div id="image-preview" class="ml-3" style="display: none;">

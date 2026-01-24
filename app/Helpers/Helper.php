@@ -22,9 +22,9 @@ if (!function_exists('fixImagePath')) {
             return $imagePath;
         }
         
-        // Xử lý đường dẫn cho hosting và VPS: images/hosting/ hoặc images/vps/
+        // Xử lý đường dẫn cho hosting, VPS và sourcecode: images/hosting/, images/vps/, images/sourcecode/
         // Trả về URL trực tiếp từ thư mục public (không qua Storage)
-        if (strpos($imagePath, 'images/hosting/') === 0 || strpos($imagePath, 'images/vps/') === 0) {
+        if (strpos($imagePath, 'images/hosting/') === 0 || strpos($imagePath, 'images/vps/') === 0 || strpos($imagePath, 'images/sourcecode/') === 0) {
             // Đảm bảo có dấu / ở đầu đường dẫn
             $path = $imagePath;
             if (strpos($path, 'images/') === 0) {
