@@ -196,9 +196,34 @@
                 error: function(xhr) {
                     $("#register").attr("disabled", false);
                     $("#register").text('Đăng Ký');
-                    if (xhr.responseJSON && xhr.responseJSON.html) {
+                    
+                    // Xử lý lỗi validation từ Laravel
+                    if (xhr.status === 422 && xhr.responseJSON && xhr.responseJSON.errors) {
+                        var errors = xhr.responseJSON.errors;
+                        var errorMessages = [];
+                        
+                        // Lấy tất cả các lỗi validation
+                        $.each(errors, function(field, messages) {
+                            $.each(messages, function(index, message) {
+                                errorMessages.push(message);
+                            });
+                        });
+                        
+                        // Hiển thị từng lỗi cụ thể
+                        if (errorMessages.length > 0) {
+                            var errorHtml = '';
+                            $.each(errorMessages, function(index, message) {
+                                errorHtml += '<script>toastr.error("' + message + '", "Lỗi Validation");<\/script>';
+                            });
+                            $('#status').html(errorHtml);
+                        } else {
+                            $('#status').html('<script>toastr.error("Có lỗi xảy ra!", "Thông Báo");<\/script>');
+                        }
+                    } else if (xhr.responseJSON && xhr.responseJSON.html) {
+                        // Xử lý lỗi từ server (có sẵn HTML)
                         $('#status').html(xhr.responseJSON.html);
                     } else {
+                        // Lỗi chung chung
                         $('#status').html('<script>toastr.error("Có lỗi xảy ra!", "Thông Báo");<\/script>');
                     }
                 }

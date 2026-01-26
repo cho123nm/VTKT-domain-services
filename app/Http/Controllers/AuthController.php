@@ -132,13 +132,30 @@ class AuthController extends Controller
             // Mật khẩu: bắt buộc, tối thiểu 8 ký tự, phải có cả chữ và số
             'password2' => 'required|same:password', 
             // Xác nhận mật khẩu: bắt buộc, phải giống password
-            'email' => 'required|email|unique:users,email', 
-            // Email: bắt buộc, định dạng email hợp lệ, duy nhất trong bảng users
+            'email' => [
+                'required',
+                'email',
+                'unique:users,email',
+                'regex:/^[a-zA-Z0-9._-]+@gmail\.com$/'
+            ],
+            // Email: bắt buộc, định dạng email hợp lệ, chỉ chấp nhận @gmail.com, duy nhất trong bảng users
         ], [
-            // Thông báo lỗi tùy chỉnh cho từng rule
+            // Thông báo lỗi tùy chỉnh cho từng rule - Tài khoản
+            'taikhoan.required' => 'Vui lòng nhập tên đăng nhập!',
+            'taikhoan.unique' => 'Tên đăng nhập đã tồn tại!',
             'taikhoan.regex' => 'Tên đăng nhập chỉ gồm chữ, số, gạch dưới (3-20 ký tự)',
-            'password.regex' => 'Mật khẩu tối thiểu 8 ký tự, gồm chữ và số',
-            'password2.same' => 'Mật khẩu xác nhận không khớp'
+            // Thông báo lỗi tùy chỉnh cho từng rule - Mật khẩu
+            'password.required' => 'Vui lòng nhập mật khẩu!',
+            'password.min' => 'Mật khẩu phải có ít nhất 8 ký tự!',
+            'password.regex' => 'Mật khẩu phải gồm cả chữ và số!',
+            // Thông báo lỗi tùy chỉnh cho từng rule - Xác nhận mật khẩu
+            'password2.required' => 'Vui lòng xác nhận mật khẩu!',
+            'password2.same' => 'Mật khẩu xác nhận không khớp!',
+            // Thông báo lỗi tùy chỉnh cho từng rule - Email
+            'email.required' => 'Vui lòng nhập email!',
+            'email.email' => 'Email không hợp lệ! Email phải có định dạng:ví dụ: user@gmail.com',
+            'email.regex' => 'Chỉ chấp nhận email Gmail (@gmail.com)!',
+            'email.unique' => 'Email đã được sử dụng!'
         ]);
 
         // Kiểm tra username và password không được giống nhau (bảo mật)
