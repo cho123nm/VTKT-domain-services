@@ -25,6 +25,7 @@ use App\Http\Controllers\ContactAdminController; // Controller hiển thị thô
 
 // Route trang chủ
 Route::get('/', [HomeController::class, 'index'])->name('home');
+Route::get('/about', [HomeController::class, 'about'])->name('about');
 
 // Routes xử lý đăng nhập/đăng ký
 Route::get('/auth/login', [AuthController::class, 'showLogin'])->name('login'); // Hiển thị form đăng nhập

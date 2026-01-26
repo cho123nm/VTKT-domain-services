@@ -60,4 +60,14 @@ class HomeController extends Controller
         // compact() tạo mảng từ các biến: ['domains' => $domains, 'settings' => $settings, ...]
         return view('pages.home', compact('domains', 'settings', 'user', 'username', 'sodu', 'email'));
     }
+
+    /**
+     * Hiển thị trang giới thiệu (About)
+     * 
+     * @return \Illuminate\View\View - View trang giới thiệu
+     */
+    public function about()
+    {
+        return view('pages.about');
+    }
 }

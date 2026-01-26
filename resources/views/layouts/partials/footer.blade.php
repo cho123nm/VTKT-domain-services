@@ -5,13 +5,13 @@
     </div>
     <ul class="menu menu-gray-600 menu-hover-primary fw-semibold order-1">
         <li class="menu-item">
-            <a href="/domain/" target="_blank" class="menu-link px-2">About</a>
+            <a href="{{ route('about') }}" class="menu-link px-2">About</a>
         </li>
         <li class="menu-item">
             <a href="https://www.facebook.com/thanh.vu.826734" target="_blank" class="menu-link px-2">Support</a>
         </li>
         <li class="menu-item">
-            <a href="/domain/" target="_blank" class="menu-link px-2">Purchase</a>
+            <a href="https://www.linkedin.com/in/thanh-vũ-3a3a03351" target="_blank" class="menu-link px-2">Purchase</a>
         </li>
     </ul>
 </div>
