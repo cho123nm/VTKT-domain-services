@@ -27,7 +27,7 @@ return [
         'partner_id' => env('CARDVIP_PARTNER_ID', ''), // Partner ID từ CardVIP (mặc định: chuỗi rỗng)
         'partner_key' => env('CARDVIP_PARTNER_KEY', ''), // Partner Key từ CardVIP (mặc định: chuỗi rỗng)
         'wallet_id' => env('CARDVIP_WALLET_ID', ''), // Mã ví điện tử từ CardVIP (mặc định: chuỗi rỗng)
-        'api_url' => env('CARDVIP_API_URL', 'http://api.cardvip.vn/api/rechargews'), // URL API CardVIP mới (rechargews) - có thể dùng HTTP
+        'api_url' => env('CARDVIP_API_URL', 'http://api.cardvip.vn/chargingws/v2'), // URL API CardVIP mới (chargingws/v2) - dùng HTTP
         'api_key' => env('CARDVIP_API_KEY', ''), // API key cũ (deprecated, dùng partner_key thay thế)
         'callback' => env('CARDVIP_CALLBACK') ?: (env('APP_URL') ?: 'http://localhost') . '/callback', // Callback URL (mặc định: APP_URL/callback)
     ],
