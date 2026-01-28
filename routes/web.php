@@ -106,6 +106,14 @@ Route::middleware(['web'])->group(function() {
 
 // Route callback từ cổng nạp thẻ (không yêu cầu đăng nhập, cho cardvip)
 Route::post('/callback', [PaymentController::class, 'callback'])->name('callback');
+// Route GET để test/verify callback URL (CardVIP có thể test bằng GET)
+Route::get('/callback', function() {
+    return response()->json([
+        'status' => 'ok',
+        'message' => 'Callback URL is working. Please use POST method for actual callbacks.',
+        'method' => 'GET'
+    ], 200);
+})->name('callback.test');
 
 // Route Telegram Webhook (không yêu cầu đăng nhập, cho Telegram Bot API)
 Route::post('/telegram/webhook', [TelegramWebhookController::class, 'handle'])->name('telegram.webhook');
