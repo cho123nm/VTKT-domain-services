@@ -102,11 +102,15 @@ class PaymentService
         if (empty($this->partnerId) || empty($this->partnerKey)) {
             Log::error('CardVIP API Configuration Missing', [
                 'partner_id' => $this->partnerId,
-                'partner_key_set' => !empty($this->partnerKey)
+                'partner_id_from_config' => config('services.cardvip.partner_id'),
+                'partner_key_set' => !empty($this->partnerKey),
+                'partner_key_from_config' => config('services.cardvip.partner_key'),
+                'env_partner_id' => env('CARDVIP_PARTNER_ID'),
+                'env_partner_key' => env('CARDVIP_PARTNER_KEY') ? 'SET' : 'NOT SET'
             ]);
             return [
                 'success' => false,
-                'message' => 'Cấu hình API chưa đầy đủ. Vui lòng kiểm tra lại Partner ID và Partner Key trong .env',
+                'message' => 'Cấu hình API chưa đầy đủ. Vui lòng kiểm tra lại Partner ID và Partner Key trong .env và chạy: php artisan config:clear',
                 'requestId' => null
             ];
         }
