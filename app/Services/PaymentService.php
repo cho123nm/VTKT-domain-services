@@ -16,7 +16,11 @@ class PaymentService
 {
     // Thuộc tính lưu trữ URL API cardvip
     protected $apiUrl;
-    // Thuộc tính lưu trữ API key từ config
+    // Thuộc tính lưu trữ Partner ID từ config
+    protected $partnerId;
+    // Thuộc tính lưu trữ Partner Key từ config
+    protected $partnerKey;
+    // Thuộc tính lưu trữ API key từ config (deprecated, dùng partner_key)
     protected $apiKey;
     // Thuộc tính lưu trữ callback URL
     protected $callback;
@@ -29,8 +33,12 @@ class PaymentService
     {
         // URL API của cardvip.vn để tạo giao dịch nạp thẻ
         $this->apiUrl = 'https://partner.cardvip.vn/api/createExchange';
-        // API key từ config (lấy từ .env)
-        $this->apiKey = config('services.cardvip.api_key');
+        // Partner ID từ config (lấy từ .env)
+        $this->partnerId = config('services.cardvip.partner_id');
+        // Partner Key từ config (lấy từ .env) - ưu tiên dùng partner_key
+        $this->partnerKey = config('services.cardvip.partner_key') ?: config('services.cardvip.api_key');
+        // API key cũ (fallback nếu không có partner_key)
+        $this->apiKey = $this->partnerKey;
         // Callback URL để nhận kết quả từ cardvip (lấy từ .env hoặc config)
         $this->callback = config('services.cardvip.callback');
     }
@@ -76,8 +84,9 @@ class PaymentService
         }
 
         // Prepare data for API
+        // CardVIP mới sử dụng Partner Key thay vì APIKey
         $dataPost = [
-            'APIKey' => $this->apiKey,
+            'APIKey' => $this->partnerKey, // Sử dụng Partner Key
             'NetworkCode' => strtoupper($type),
             'PricesExchange' => $amount,
             'NumberCard' => $pin,
