@@ -32,7 +32,14 @@
                                         <div class="card-body pt-4 pb-7">
                                             <div class="sourcecode-image-wrapper mb-5">
                                                 @if(!empty($sourceCode->image))
-                                                    <img src="{{ fixImagePath($sourceCode->image) }}" class="sourcecode-image" alt="{{ $sourceCode->name }}">
+                                                    <img src="{{ fixImagePath($sourceCode->image) }}" 
+                                                         class="sourcecode-image" 
+                                                         alt="{{ $sourceCode->name }}"
+                                                         loading="eager"
+                                                         decoding="async"
+                                                         width="250"
+                                                         height="200"
+                                                         fetchpriority="high">
                                                 @else
                                                     <div class="sourcecode-image-placeholder">
                                                         <i class="fas fa-code fs-1 text-gray-400"></i>
@@ -85,6 +92,9 @@
         position: relative;
         padding: 20px;
         overflow: hidden;
+        /* Tối ưu render performance - giảm reflow/repaint */
+        contain: layout style paint;
+        min-height: 200px;
     }
 
     .sourcecode-image {
@@ -92,9 +102,17 @@
         max-width: 250px;
         height: auto;
         object-fit: contain;
-        transition: all 0.4s ease;
+        transition: transform 0.4s ease, filter 0.3s ease;
         position: relative;
         z-index: 1;
+        /* Tối ưu render performance - GPU acceleration */
+        transform: translateZ(0) scale(1);
+        will-change: transform, filter;
+        backface-visibility: hidden;
+        -webkit-backface-visibility: hidden;
+        /* Tối ưu chất lượng ảnh PNG */
+        image-rendering: -webkit-optimize-contrast;
+        image-rendering: crisp-edges;
     }
 
     .sourcecode-image-placeholder {
@@ -109,7 +127,7 @@
     }
 
     .sourcecode-card:hover .sourcecode-image {
-        transform: scale(1.1);
+        transform: translateZ(0) scale(1.1);
     }
 
     /* Shimmer effect */
@@ -156,12 +174,7 @@
         height: 300px;
     }
 
-    /* Additional shine effect */
-    .sourcecode-image {
-        filter: brightness(1);
-        transition: filter 0.3s ease;
-    }
-
+    /* Additional shine effect - chỉ áp dụng khi hover */
     .sourcecode-card:hover .sourcecode-image {
         filter: brightness(1.1) drop-shadow(0 0 20px rgba(0, 123, 255, 0.3));
     }
