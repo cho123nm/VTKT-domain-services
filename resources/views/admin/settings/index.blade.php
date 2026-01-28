@@ -196,16 +196,20 @@
             <form action="{{ route('admin.settings.card') }}" method="POST">
                 @csrf
                 <div class="form-inline">
-                    <label for="webgach" class="form-label sm:w-20">Tên Web Gạch</label>
-                    <input id="webgach" type="text" name="webgach" class="form-control" value="{{ $settings->webgach ?? '' }}" placeholder="Tên Web Gạch" required>
+                    <label for="cardvip_partner_id" class="form-label sm:w-20">Partner ID</label>
+                    <input id="cardvip_partner_id" type="text" name="cardvip_partner_id" class="form-control" value="{{ $settings->cardvip_partner_id ?? '' }}" placeholder="Partner ID từ CardVIP" required>
                 </div>
                 <div class="form-inline mt-5">
-                    <label for="apikey" class="form-label sm:w-20">API KEY</label>
-                    <input id="apikey" type="text" name="apikey" class="form-control" value="{{ $settings->apikey ?? '' }}" placeholder="API KEY Tại CardVip.Vn" required>
+                    <label for="cardvip_partner_key" class="form-label sm:w-20">Partner Key</label>
+                    <input id="cardvip_partner_key" type="text" name="cardvip_partner_key" class="form-control" value="{{ $settings->cardvip_partner_key ?? '' }}" placeholder="Partner Key từ CardVIP" required>
                 </div>
                 <div class="form-inline mt-5">
-                    <label for="callback" class="form-label sm:w-20">URL CALLBACK</label>
-                    <input id="callback" type="text" name="callback" class="form-control" value="{{ $settings->callback ?? '' }}" placeholder="URL TRẢ TRẠNG THÁI THẺ" required>
+                    <label for="cardvip_api_url" class="form-label sm:w-20">API URL</label>
+                    <input id="cardvip_api_url" type="text" name="cardvip_api_url" class="form-control" value="{{ $settings->cardvip_api_url ?? 'http://api.cardvip.vn/chargingws/v2' }}" placeholder="URL API CardVIP" required>
+                </div>
+                <div class="form-inline mt-5">
+                    <label for="cardvip_callback" class="form-label sm:w-20">Callback URL</label>
+                    <input id="cardvip_callback" type="text" name="cardvip_callback" class="form-control" value="{{ $settings->cardvip_callback ?? '' }}" placeholder="URL Callback nhận kết quả" required>
                 </div>
                 <div class="sm:ml-20 sm:pl-5 mt-5">
                     <button type="submit" class="btn btn-primary">Cập Nhật</button>

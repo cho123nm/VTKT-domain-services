@@ -31,16 +31,23 @@ class PaymentService
      */
     public function __construct()
     {
-        // URL API của cardvip.vn để tạo giao dịch nạp thẻ (API mới: /chargingws/v2)
-        $this->apiUrl = config('services.cardvip.api_url', 'http://api.cardvip.vn/chargingws/v2');
-        // Partner ID từ config (lấy từ .env)
-        $this->partnerId = config('services.cardvip.partner_id');
-        // Partner Key từ config (lấy từ .env) - ưu tiên dùng partner_key
-        $this->partnerKey = config('services.cardvip.partner_key') ?: config('services.cardvip.api_key');
+        // Ưu tiên đọc từ Database (Settings), fallback về .env/config
+        $settings = \App\Models\Settings::getOne();
+        
+        // URL API của cardvip.vn - ưu tiên DB, fallback .env
+        $this->apiUrl = $settings->cardvip_api_url ?? config('services.cardvip.api_url', 'http://api.cardvip.vn/chargingws/v2');
+        
+        // Partner ID - ưu tiên DB, fallback .env
+        $this->partnerId = $settings->cardvip_partner_id ?? config('services.cardvip.partner_id');
+        
+        // Partner Key - ưu tiên DB, fallback .env
+        $this->partnerKey = $settings->cardvip_partner_key ?? config('services.cardvip.partner_key') ?? config('services.cardvip.api_key');
+        
         // API key cũ (fallback nếu không có partner_key)
         $this->apiKey = $this->partnerKey;
-        // Callback URL để nhận kết quả từ cardvip (lấy từ .env hoặc config)
-        $this->callback = config('services.cardvip.callback');
+        
+        // Callback URL - ưu tiên DB, fallback .env
+        $this->callback = $settings->cardvip_callback ?? config('services.cardvip.callback');
     }
 
     /**

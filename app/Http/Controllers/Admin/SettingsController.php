@@ -172,9 +172,10 @@ class SettingsController extends Controller
     {
         // Validate dữ liệu đầu vào từ form
         $request->validate([
-            'webgach' => 'required|string', // Web gạch bắt buộc
-            'apikey' => 'required|string', // API key bắt buộc
-            'callback' => 'required|string|url', // Callback URL bắt buộc, phải là URL hợp lệ
+            'cardvip_partner_id' => 'required|string', // Partner ID bắt buộc
+            'cardvip_partner_key' => 'required|string', // Partner Key bắt buộc
+            'cardvip_api_url' => 'required|string|url', // API URL bắt buộc, phải là URL hợp lệ
+            'cardvip_callback' => 'required|string|url', // Callback URL bắt buộc, phải là URL hợp lệ
         ]);
 
         // Lấy cài đặt từ database
@@ -185,14 +186,15 @@ class SettingsController extends Controller
             $settings = new Settings();
         }
 
-        // Cập nhật các trường cài đặt cổng nạp thẻ
-        $settings->webgach = $request->webgach; // Web gạch
-        $settings->apikey = $request->apikey; // API key
-        $settings->callback = $request->callback; // Callback URL
+        // Cập nhật các trường cài đặt CardVIP API mới
+        $settings->cardvip_partner_id = $request->cardvip_partner_id; // Partner ID
+        $settings->cardvip_partner_key = $request->cardvip_partner_key; // Partner Key
+        $settings->cardvip_api_url = $request->cardvip_api_url; // API URL
+        $settings->cardvip_callback = $request->cardvip_callback; // Callback URL
         $settings->save(); // Lưu vào database
 
         // Redirect về trang cài đặt với thông báo thành công
         return redirect()->route('admin.settings.index')
-            ->with('success', 'Cập nhật cài đặt gạch thẻ thành công!');
+            ->with('success', 'Cập nhật cài đặt CardVIP API thành công!');
     }
 }

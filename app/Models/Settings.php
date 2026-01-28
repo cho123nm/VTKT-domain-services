@@ -29,9 +29,13 @@ class Settings extends Model
         'sodienthoai', // Số điện thoại liên hệ
         'banner', // Banner
         'logo', // Logo website
-        'webgach', // Web gạch (có thể là link hoặc text)
-        'apikey', // API key (có thể cho các dịch vụ tích hợp)
-        'callback', // Callback URL
+        'webgach', // Web gạch (có thể là link hoặc text) - Cũ, giữ lại để tương thích
+        'apikey', // API key (có thể cho các dịch vụ tích hợp) - Cũ, giữ lại để tương thích
+        'callback', // Callback URL - Cũ, giữ lại để tương thích
+        'cardvip_partner_id', // Partner ID từ CardVIP (mới)
+        'cardvip_partner_key', // Partner Key từ CardVIP (mới)
+        'cardvip_api_url', // API URL CardVIP (mới)
+        'cardvip_callback', // Callback URL CardVIP (mới)
         'facebook_link', // Link Facebook
         'zalo_phone', // Số điện thoại Zalo
         'telegram_bot_token', // Telegram bot token
