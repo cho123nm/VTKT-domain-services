@@ -76,11 +76,19 @@ class PaymentService
         } while (Card::where('requestid', $requestId)->exists());
         
         // Validate card type
-        $allowedTypes = ['VIETTEL', 'VINAPHONE', 'MOBIFONE', 'GATE', 'ZING', 'VNMOBI', 'VIETNAMOBILE'];
-        if (!in_array(strtoupper($type), $allowedTypes, true)) {
+        $allowedTypes = ['VIETTEL', 'VINAPHONE', 'MOBIFONE', 'GATE', 'ZING', 'VNMOBI', 'VIETNAMOBILE', 'GARENA'];
+        $cardTypeUpper = strtoupper($type);
+        if (!in_array($cardTypeUpper, $allowedTypes, true)) {
+            Log::warning('CardVIP - Loại thẻ không hợp lệ', [
+                'user_id' => $userId,
+                'type_received' => $type,
+                'type_uppercase' => $cardTypeUpper,
+                'allowed_types' => $allowedTypes
+            ]);
+            
             return [
                 'success' => false,
-                'message' => 'Loại thẻ không hợp trợ',
+                'message' => 'Loại thẻ "' . $type . '" không được hỗ trợ. Vui lòng chọn lại loại thẻ hợp lệ.',
                 'requestId' => null
             ];
         }
@@ -149,10 +157,16 @@ class PaymentService
         ];
 
         try {
-            // Log request để debug
-            Log::info('CardVIP API Request', [
+            // Log request chi tiết để debug
+            Log::info('CardVIP API Request - Nạp Thẻ', [
+                'user_id' => $userId,
                 'url' => $this->apiUrl,
-                'data' => $dataPost
+                'telco' => $telco,
+                'amount' => $amount,
+                'request_id' => $requestId,
+                'pin_length' => strlen($pin),
+                'serial_length' => strlen($serial),
+                'data' => array_merge($dataPost, ['code' => '***', 'serial' => '***']) // Ẩn PIN và Serial trong log
             ]);
             
             // Send request to cardvip API (form-data, không phải JSON)
@@ -160,22 +174,32 @@ class PaymentService
                 ->asForm() // Gửi dưới dạng form-data
                 ->post($this->apiUrl, $dataPost);
 
-            // Log response để debug
-            Log::info('CardVIP API Response', [
-                'status' => $response->status(),
-                'body' => $response->body()
+            // Log response chi tiết để debug
+            $responseBody = $response->body();
+            $responseStatus = $response->status();
+            
+            Log::info('CardVIP API Response - Nạp Thẻ', [
+                'user_id' => $userId,
+                'request_id' => $requestId,
+                'http_status' => $responseStatus,
+                'body' => $responseBody,
+                'successful' => $response->successful()
             ]);
 
             if (!$response->successful()) {
-                Log::error('CardVIP API Error', [
-                    'status' => $response->status(),
-                    'body' => $response->body(),
-                    'url' => $this->apiUrl
+                Log::error('CardVIP API HTTP Error - Nạp Thẻ', [
+                    'user_id' => $userId,
+                    'request_id' => $requestId,
+                    'http_status' => $responseStatus,
+                    'body' => $responseBody,
+                    'url' => $this->apiUrl,
+                    'telco' => $telco,
+                    'amount' => $amount
                 ]);
                 
                 return [
                     'success' => false,
-                    'message' => 'Không thể kết nối cổng nạp thẻ (HTTP ' . $response->status() . ')',
+                    'message' => 'Không thể kết nối cổng nạp thẻ. Vui lòng thử lại sau (HTTP ' . $responseStatus . ')',
                     'requestId' => null
                 ];
             }
@@ -188,8 +212,22 @@ class PaymentService
             $message = $result['message'] ?? '';
             $transId = $result['trans_id'] ?? null;
             $responseRequestId = $result['request_id'] ?? $requestId;
+            $valueReceived = isset($result['amount']) ? (int)$result['amount'] : null;
+            $declaredValue = isset($result['declared_value']) ? (int)$result['declared_value'] : null;
+            
+            // Log chi tiết response từ API
+            Log::info('CardVIP API Response Parsed - Nạp Thẻ', [
+                'user_id' => $userId,
+                'request_id' => $requestId,
+                'api_status' => $apiStatus,
+                'api_message' => $message,
+                'trans_id' => $transId,
+                'value_received' => $valueReceived,
+                'declared_value' => $declaredValue,
+                'full_response' => $result
+            ]);
 
-            // Kiểm tra status từ API
+            // Kiểm tra status từ API và xử lý từng trường hợp cụ thể
             if ($apiStatus === 99) {
                 // Thẻ chờ xử lý - lưu vào database với status pending
                 Card::create([
@@ -205,14 +243,22 @@ class PaymentService
                     'time3' => now()->format('Y-m')
                 ]);
 
+                Log::info('CardVIP - Thẻ đã được gửi, đang chờ xử lý', [
+                    'user_id' => $userId,
+                    'request_id' => $responseRequestId,
+                    'trans_id' => $transId,
+                    'telco' => $telco,
+                    'amount' => $amount
+                ]);
+
                 return [
                     'success' => true,
-                    'message' => 'Nạp thẻ thành công, vui lòng chờ 30s - 1 phút để duyệt',
+                    'message' => 'Thẻ đã được gửi thành công! Vui lòng chờ 30 giây - 1 phút để hệ thống xử lý và cộng tiền vào tài khoản.',
                     'requestId' => $responseRequestId
                 ];
-            } elseif ($apiStatus === 1 || $apiStatus === 2) {
-                // Thẻ thành công (đúng hoặc sai mệnh giá) - lưu và cập nhật số dư ngay
-                $valueReceived = isset($result['amount']) ? (int)$result['amount'] : $amount;
+            } elseif ($apiStatus === 1) {
+                // Thẻ thành công đúng mệnh giá - lưu và cập nhật số dư ngay
+                $valueToAdd = $valueReceived ?? $amount;
                 
                 Card::create([
                     'uid' => $userId,
@@ -230,55 +276,151 @@ class PaymentService
                 // Cập nhật số dư user
                 $user = User::find($userId);
                 if ($user) {
-                    $user->tien = (int)$user->tien + $valueReceived;
+                    $oldBalance = (int)$user->tien;
+                    $user->tien = $oldBalance + $valueToAdd;
                     $user->save();
+                    
+                    Log::info('CardVIP - Thẻ thành công đúng mệnh giá, đã cộng tiền', [
+                        'user_id' => $userId,
+                        'request_id' => $responseRequestId,
+                        'trans_id' => $transId,
+                        'telco' => $telco,
+                        'amount_declared' => $amount,
+                        'value_received' => $valueToAdd,
+                        'old_balance' => $oldBalance,
+                        'new_balance' => $user->tien
+                    ]);
                 }
 
                 return [
                     'success' => true,
-                    'message' => 'Nạp thẻ thành công! Số dư đã được cập nhật.',
+                    'message' => 'Nạp thẻ thành công! Đã cộng ' . number_format($valueToAdd) . '₫ vào tài khoản của bạn.',
                     'requestId' => $responseRequestId
                 ];
-            } elseif ($apiStatus === 100) {
-                // Gửi thẻ thất bại
-                $errorMessage = $message ?: 'Gửi thẻ thất bại';
+            } elseif ($apiStatus === 2) {
+                // Thẻ thành công sai mệnh giá - vẫn cộng số tiền thực nhận
+                $valueToAdd = $valueReceived ?? $amount;
+                
+                Card::create([
+                    'uid' => $userId,
+                    'pin' => $pin,
+                    'serial' => $serial,
+                    'type' => strtoupper($type),
+                    'amount' => (string)$amount,
+                    'requestid' => $responseRequestId,
+                    'status' => 1, // Thành công
+                    'time' => now()->format('d/m/Y - H:i:s'),
+                    'time2' => now()->format('d/m/Y'),
+                    'time3' => now()->format('Y-m')
+                ]);
+
+                // Cập nhật số dư user
+                $user = User::find($userId);
+                if ($user) {
+                    $oldBalance = (int)$user->tien;
+                    $user->tien = $oldBalance + $valueToAdd;
+                    $user->save();
+                    
+                    Log::info('CardVIP - Thẻ thành công sai mệnh giá, đã cộng tiền thực nhận', [
+                        'user_id' => $userId,
+                        'request_id' => $responseRequestId,
+                        'trans_id' => $transId,
+                        'telco' => $telco,
+                        'amount_declared' => $amount,
+                        'value_received' => $valueToAdd,
+                        'old_balance' => $oldBalance,
+                        'new_balance' => $user->tien
+                    ]);
+                }
+
                 return [
-                    'success' => false,
-                    'message' => $errorMessage,
-                    'requestId' => null
+                    'success' => true,
+                    'message' => 'Nạp thẻ thành công! Thẻ có mệnh giá khác với khai báo. Đã cộng ' . number_format($valueToAdd) . '₫ vào tài khoản của bạn.',
+                    'requestId' => $responseRequestId
                 ];
             } elseif ($apiStatus === 3) {
-                // Thẻ lỗi
+                // Thẻ lỗi - không hợp lệ hoặc đã được sử dụng
+                Log::warning('CardVIP - Thẻ lỗi (không hợp lệ hoặc đã sử dụng)', [
+                    'user_id' => $userId,
+                    'request_id' => $requestId,
+                    'api_status' => $apiStatus,
+                    'api_message' => $message,
+                    'telco' => $telco,
+                    'amount' => $amount
+                ]);
+                
                 return [
                     'success' => false,
-                    'message' => 'Thẻ không hợp lệ hoặc đã được sử dụng',
+                    'message' => 'Thẻ không hợp lệ hoặc đã được sử dụng. Vui lòng kiểm tra lại thông tin thẻ và thử lại.',
                     'requestId' => null
                 ];
             } elseif ($apiStatus === 4) {
                 // Hệ thống bảo trì
+                Log::warning('CardVIP - Hệ thống đang bảo trì', [
+                    'user_id' => $userId,
+                    'request_id' => $requestId,
+                    'api_status' => $apiStatus,
+                    'api_message' => $message
+                ]);
+                
                 return [
                     'success' => false,
-                    'message' => 'Hệ thống đang bảo trì, vui lòng thử lại sau',
+                    'message' => 'Hệ thống nạp thẻ đang bảo trì. Vui lòng thử lại sau ít phút.',
+                    'requestId' => null
+                ];
+            } elseif ($apiStatus === 100) {
+                // Gửi thẻ thất bại
+                $errorMessage = !empty($message) ? $message : 'Gửi thẻ thất bại';
+                
+                Log::error('CardVIP - Gửi thẻ thất bại', [
+                    'user_id' => $userId,
+                    'request_id' => $requestId,
+                    'api_status' => $apiStatus,
+                    'api_message' => $message,
+                    'telco' => $telco,
+                    'amount' => $amount,
+                    'full_response' => $result
+                ]);
+                
+                return [
+                    'success' => false,
+                    'message' => 'Gửi thẻ thất bại: ' . $errorMessage . '. Vui lòng kiểm tra lại thông tin thẻ và thử lại.',
                     'requestId' => null
                 ];
             } else {
-                // Status không xác định
-                $errorMessage = $message ?: 'Có lỗi khi gửi thẻ (Status: ' . $apiStatus . ')';
+                // Status không xác định hoặc null
+                Log::error('CardVIP - Status không xác định', [
+                    'user_id' => $userId,
+                    'request_id' => $requestId,
+                    'api_status' => $apiStatus,
+                    'api_message' => $message,
+                    'telco' => $telco,
+                    'amount' => $amount,
+                    'full_response' => $result
+                ]);
+                
+                $errorMessage = !empty($message) ? $message : 'Có lỗi xảy ra khi xử lý thẻ (Status: ' . ($apiStatus ?? 'null') . ')';
                 return [
                     'success' => false,
-                    'message' => $errorMessage,
+                    'message' => $errorMessage . '. Vui lòng thử lại sau hoặc liên hệ admin nếu vấn đề vẫn tiếp tục.',
                     'requestId' => null
                 ];
             }
         } catch (\Exception $e) {
-            Log::error('CardVIP API Exception', [
-                'message' => $e->getMessage(),
+            Log::error('CardVIP API Exception - Nạp Thẻ', [
+                'user_id' => $userId,
+                'request_id' => $requestId,
+                'telco' => $telco ?? 'unknown',
+                'amount' => $amount ?? 'unknown',
+                'error_message' => $e->getMessage(),
+                'error_file' => $e->getFile(),
+                'error_line' => $e->getLine(),
                 'trace' => $e->getTraceAsString()
             ]);
 
             return [
                 'success' => false,
-                'message' => 'Không thể kết nối cổng nạp thẻ: ' . $e->getMessage(),
+                'message' => 'Có lỗi xảy ra khi kết nối cổng nạp thẻ. Vui lòng thử lại sau hoặc liên hệ admin nếu vấn đề vẫn tiếp tục.',
                 'requestId' => null
             ];
         }

@@ -78,8 +78,15 @@ class PaymentController extends Controller
             'serial' => 'required|string|max:30', // Serial thẻ cào, bắt buộc, tối đa 30 ký tự
             'amount' => 'required|integer|in:10000,20000,30000,50000,100000,200000,300000,500000,1000000', 
             // Mệnh giá thẻ, bắt buộc, chỉ nhận các giá trị trong danh sách
-            'type' => 'required|string|in:VIETTEL,VINAPHONE,VIETNAMOBILE,MOBIFONE,GARENA,ZING,GATE' 
+            'type' => 'required|string|in:VIETTEL,VINAPHONE,VIETNAMOBILE,MOBIFONE,GARENA,ZING,GATE,VNMOBI' 
             // Loại thẻ, bắt buộc, chỉ nhận các loại trong danh sách
+        ], [
+            'type.in' => 'Loại thẻ không hợp lệ. Vui lòng chọn lại loại thẻ.',
+            'type.required' => 'Vui lòng chọn loại thẻ.',
+            'amount.in' => 'Mệnh giá thẻ không hợp lệ. Vui lòng chọn lại mệnh giá.',
+            'amount.required' => 'Vui lòng chọn mệnh giá thẻ.',
+            'pin.required' => 'Vui lòng nhập mã thẻ.',
+            'serial.required' => 'Vui lòng nhập số seri thẻ.'
         ]);
 
         // Lấy username từ session
