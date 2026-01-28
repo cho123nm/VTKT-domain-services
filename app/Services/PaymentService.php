@@ -31,8 +31,8 @@ class PaymentService
      */
     public function __construct()
     {
-        // URL API của cardvip.vn để tạo giao dịch nạp thẻ
-        $this->apiUrl = 'https://partner.cardvip.vn/api/createExchange';
+        // URL API của cardvip.vn để tạo giao dịch nạp thẻ (API mới: /api/rechargews)
+        $this->apiUrl = config('services.cardvip.api_url', 'https://partner.cardvip.vn/api/rechargews');
         // Partner ID từ config (lấy từ .env)
         $this->partnerId = config('services.cardvip.partner_id');
         // Partner Key từ config (lấy từ .env) - ưu tiên dùng partner_key
@@ -41,6 +41,24 @@ class PaymentService
         $this->apiKey = $this->partnerKey;
         // Callback URL để nhận kết quả từ cardvip (lấy từ .env hoặc config)
         $this->callback = config('services.cardvip.callback');
+    }
+
+    /**
+     * Tạo chữ ký (signature) cho request CardVIP
+     * Format: md5(partner_key + partner_id + command + request_id)
+     * 
+     * @param string $command - Command của API
+     * @param string $requestId - Request ID (optional)
+     * @return string - MD5 hash signature
+     */
+    private function generateSignature(string $command, string $requestId = ''): string
+    {
+        // Thứ tự mã hóa: partner_key + partner_id + command + request_id
+        $signString = $this->partnerKey . $this->partnerId . $command;
+        if (!empty($requestId)) {
+            $signString .= $requestId;
+        }
+        return md5($signString);
     }
 
     /**
@@ -83,29 +101,63 @@ class PaymentService
             ];
         }
 
-        // Prepare data for API
-        // CardVIP mới sử dụng Partner Key thay vì APIKey
+        // Prepare data for API mới của CardVIP
+        // Format mới: partner_id, command, sign (MD5 hash)
+        $command = 'exchange'; // Command để đổi thẻ cào
+        
+        // Tạo signature: md5(partner_key + partner_id + command + request_id)
+        $sign = $this->generateSignature($command, $requestId);
+        
+        // Map loại thẻ sang format CardVIP mới
+        $cardTypeMap = [
+            'VIETTEL' => 'viettel',
+            'VINAPHONE' => 'vinaphone',
+            'MOBIFONE' => 'mobifone',
+            'GATE' => 'gate',
+            'ZING' => 'zing',
+            'VNMOBI' => 'vnmobi',
+            'VIETNAMOBILE' => 'vietnamobile'
+        ];
+        
+        $cardType = strtoupper($type);
+        $networkCode = $cardTypeMap[$cardType] ?? strtolower($cardType);
+        
+        // Format request mới theo tài liệu CardVIP
         $dataPost = [
-            'APIKey' => $this->partnerKey, // Sử dụng Partner Key
-            'NetworkCode' => strtoupper($type),
-            'PricesExchange' => $amount,
-            'NumberCard' => $pin,
-            'SeriCard' => $serial,
-            'IsFast' => true,
-            'RequestId' => $requestId,
-            'UrlCallback' => $this->callback
+            'partner_id' => $this->partnerId,
+            'command' => $command,
+            'request_id' => $requestId,
+            'pin' => $pin,
+            'serial' => $serial,
+            'type' => $networkCode,
+            'amount' => $amount,
+            'callback_url' => $this->callback,
+            'sign' => $sign
         ];
 
         try {
+            // Log request để debug
+            Log::info('CardVIP API Request', [
+                'url' => $this->apiUrl,
+                'data' => $dataPost
+            ]);
+            
             // Send request to cardvip API
             $response = Http::timeout(30)
                 ->withHeaders(['Content-Type' => 'application/json'])
                 ->post($this->apiUrl, $dataPost);
 
+            // Log response để debug
+            Log::info('CardVIP API Response', [
+                'status' => $response->status(),
+                'body' => $response->body()
+            ]);
+
             if (!$response->successful()) {
                 Log::error('CardVIP API Error', [
                     'status' => $response->status(),
-                    'body' => $response->body()
+                    'body' => $response->body(),
+                    'url' => $this->apiUrl
                 ]);
                 
                 return [
@@ -116,10 +168,17 @@ class PaymentService
             }
 
             $result = $response->json();
-            $status = $result['status'] ?? null;
-            $message = $result['message'] ?? '';
+            
+            // Format response mới: {"status": "success", "data": {...}}
+            $apiStatus = $result['status'] ?? null;
+            $data = $result['data'] ?? [];
+            $message = $result['message'] ?? ($result['error'] ?? '');
 
-            if ($status === 200) {
+            // Kiểm tra status từ API
+            if ($apiStatus === 'success') {
+                // Lấy order_code từ response (nếu có)
+                $orderCode = $data['order_code'] ?? $requestId;
+                
                 // Save card transaction to database
                 Card::create([
                     'uid' => $userId,
@@ -127,7 +186,7 @@ class PaymentService
                     'serial' => $serial,
                     'type' => strtoupper($type),
                     'amount' => (string)$amount,
-                    'requestid' => $requestId,
+                    'requestid' => $orderCode, // Dùng order_code từ API hoặc request_id
                     'status' => 0, // Pending
                     'time' => now()->format('d/m/Y - H:i:s'),
                     'time2' => now()->format('d/m/Y'),
@@ -137,30 +196,14 @@ class PaymentService
                 return [
                     'success' => true,
                     'message' => 'Nạp thẻ thành công, vui lòng chờ 30s - 1 phút để duyệt',
-                    'requestId' => $requestId
-                ];
-            } elseif ($status === 400) {
-                return [
-                    'success' => false,
-                    'message' => 'Thẻ đã tồn tại hoặc không hợp lệ: ' . $message,
-                    'requestId' => null
-                ];
-            } elseif ($status === 401) {
-                return [
-                    'success' => false,
-                    'message' => 'Sai định dạng thẻ: ' . $message,
-                    'requestId' => null
-                ];
-            } elseif ($status === 403) {
-                return [
-                    'success' => false,
-                    'message' => 'APIKey không hợp lệ hoặc bị hạn chế',
-                    'requestId' => null
+                    'requestId' => $orderCode
                 ];
             } else {
+                // API trả về lỗi
+                $errorMessage = $message ?: ($data['message'] ?? 'Có lỗi khi gửi thẻ');
                 return [
                     'success' => false,
-                    'message' => $message ?: 'Có lỗi khi gửi thẻ',
+                    'message' => $errorMessage,
                     'requestId' => null
                 ];
             }
