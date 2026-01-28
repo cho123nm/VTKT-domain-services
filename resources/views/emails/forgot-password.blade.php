@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <title>Đặt Lại Mật Khẩu - {{ config('app.name', 'SHOP VTKT') }}</title>
+    <title>Đặt Lại Mật Khẩu - {{ config('app.name', 'SHOP VTKT.online') }}</title>
     <style>
         /* Reset CSS */
         * {
@@ -321,7 +321,7 @@
     <div class="email-wrapper">
         <!-- Header -->
         <div class="email-header">
-            <div class="logo">{{ config('app.name', 'SHOP VTKT') }}</div>
+            <div class="logo">{{ config('app.name', 'SHOP VTKT.online') }}</div>
             <div class="header-subtitle">Đặt Lại Mật Khẩu</div>
         </div>
         
@@ -339,7 +339,7 @@
             
             <div class="welcome-text">
                 Bạn đã yêu cầu đặt lại mật khẩu cho tài khoản của mình tại 
-                <strong style="color: #667eea;">{{ config('app.name', 'SHOP VTKT') }}</strong>.
+                <strong style="color: #667eea;">{{ config('app.name', 'SHOP VTKT.online') }}</strong>.
             </div>
             
             <div class="welcome-text">
@@ -397,10 +397,10 @@
         <!-- Footer -->
         <div class="email-footer">
             <div class="footer-text">
-                <strong style="color: #ffffff;">{{ config('app.name', 'SHOP VTKT') }}</strong>
+                <strong style="color: #ffffff;">{{ config('app.name', 'SHOP VTKT.online') }}</strong>
             </div>
             <div class="footer-copyright">
-                © {{ date('Y') }} {{ config('app.name', 'SHOP VTKT') }}. Tất cả quyền được bảo lưu.
+                © {{ date('Y') }} {{ config('app.name', 'SHOP VTKT.online') }}. Tất cả quyền được bảo lưu.
             </div>
             <div class="footer-copyright" style="margin-top: 10px;">
                 Email này được gửi tự động, vui lòng không trả lời trực tiếp email này.

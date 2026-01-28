@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <title>Xác Nhận Đơn Hàng - {{ config('app.name', 'SHOP VTKT') }}</title>
+    <title>Xác Nhận Đơn Hàng - {{ config('app.name', 'SHOP VTKT.online') }}</title>
     <style>
         /* Reset CSS */
         * {
@@ -369,7 +369,7 @@
     <div class="email-wrapper">
         <!-- Header -->
         <div class="email-header">
-            <div class="logo">{{ config('app.name', 'SHOP vtkt') }}</div>
+            <div class="logo">{{ config('app.name', 'SHOP VTKT.online.online') }}</div>
             <div class="header-subtitle">Xác Nhận Đơn Hàng</div>
         </div>
         
@@ -386,7 +386,7 @@
             <div class="greeting">Xin Chào {{ $user->taikhoan }}! 👋</div>
             
             <div class="welcome-text">
-                Cảm ơn bạn đã mua hàng tại <strong style="color: #667eea;">{{ config('app.name', 'SHOP vtkt') }}</strong>! 
+                Cảm ơn bạn đã mua hàng tại <strong style="color: #667eea;">{{ config('app.name', 'SHOP VTKT.online.online') }}</strong>! 
                 Đơn hàng của bạn đã được tạo thành công và đang chờ được xử lý. 
                 Dưới đây là thông tin chi tiết đơn hàng của bạn:
             </div>
@@ -519,7 +519,7 @@
             <div class="contact-section">
                 <div class="contact-title">📞 Cần Hỗ Trợ?</div>
                 <ul class="contact-list">
-                    <li>Email: <strong>{{ config('mail.from.address', 'support@thanhvu.net') }}</strong></li>
+                    <li>Email: <strong>{{ config('mail.from.address', 'chumlongchinhgiua@gmail.com') }}</strong></li>
                     <li>Hoặc sử dụng tính năng "Liên Hệ Admin" trên website</li>
                 </ul>
             </div>
@@ -528,10 +528,10 @@
         <!-- Footer -->
         <div class="email-footer">
             <div class="footer-text">
-                <strong style="color: #ffffff;">{{ config('app.name', 'SHOP vtkt') }}</strong>
+                <strong style="color: #ffffff;">{{ config('app.name', 'SHOP VTKT.online.online') }}</strong>
             </div>
             <div class="footer-copyright">
-                © {{ date('Y') }} {{ config('app.name', 'SHOP vtkt') }}. Tất cả quyền được bảo lưu.
+                © {{ date('Y') }} {{ config('app.name', 'SHOP VTKT.online.online') }}. Tất cả quyền được bảo lưu.
             </div>
             <div class="footer-copyright" style="margin-top: 10px;">
                 Email này được gửi tự động, vui lòng không trả lời trực tiếp email này.
