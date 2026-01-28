@@ -117,54 +117,16 @@
                     <label class="form-label">Webhook URL</label>
                     @php
                         $webhookUrl = url('/telegram/webhook');
-                        $isLocalhost = in_array(request()->getHost(), ['localhost', '127.0.0.1', '::1']) || strpos(request()->getHost(), '.local') !== false;
                     @endphp
-                    @if($isLocalhost)
-                        <div class="alert alert-danger mb-3">
-                            <strong>⚠️ CẢNH BÁO:</strong> Bạn đang dùng localhost! Telegram không thể truy cập localhost. 
-                            Bạn cần dùng <a href="https://ngrok.com" target="_blank" class="text-white underline">ngrok</a> hoặc domain thật với HTTPS.
-                        </div>
-                    @endif
                     <div class="input-group">
-                        <input type="text" class="form-control {{ $isLocalhost ? 'border-danger' : '' }}" value="{{ $webhookUrl }}" readonly id="webhookUrl">
+                        <input type="text" class="form-control" value="{{ $webhookUrl }}" readonly id="webhookUrl">
                         <button type="button" class="btn btn-outline-secondary" onclick="copyToClipboard()">
                             Copy
                         </button>
                     </div>
                     <div class="text-slate-500 text-xs mt-1">
                         Cấu hình webhook này trong BotFather: <code>/setwebhook</code> và dán URL trên
-                        @if($isLocalhost)
-                            <br><strong class="text-danger">Lưu ý: URL này không hoạt động! Cần dùng ngrok hoặc domain thật.</strong>
-                        @endif
                     </div>
-                </div>
-                
-                <div class="alert alert-warning show mb-4">
-                    <h4 class="font-medium mb-2">⚠️ QUAN TRỌNG - Webhook URL:</h4>
-                    <p><strong>localhost KHÔNG hoạt động với Telegram!</strong></p>
-                    <p>Bạn cần:</p>
-                    <ol class="mb-0 ml-4">
-                        <li><strong>Nếu đang test local:</strong> Dùng <a href="https://ngrok.com" target="_blank" class="text-primary">ngrok</a> để tạo tunnel:
-                            <ul class="ml-4">
-                                <li>Tải ngrok: <code>ngrok http 80</code> (hoặc port của bạn)</li>
-                                <li>Copy URL HTTPS từ ngrok (ví dụ: <code>https://abc123.ngrok.io</code>)</li>
-                                <li>Webhook URL sẽ là: <code>https://abc123.ngrok.io/telegram/webhook</code></li>
-                            </ul>
-                        </li>
-                        <li><strong>Nếu đã có domain:</strong> Đảm bảo có SSL (HTTPS) và dùng domain thật</li>
-                        <li>Thiết lập webhook: Gửi lệnh <code>/setwebhook</code> cho @BotFather kèm URL webhook</li>
-                        <li>Kiểm tra webhook: Gửi lệnh <code>/getwebhookinfo</code> cho @BotFather</li>
-                    </ol>
-                </div>
-                
-                <div class="alert alert-outline-primary show mb-4">
-                    <h4 class="font-medium mb-2">Hướng Dẫn Cơ Bản:</h4>
-                    <ol class="mb-0 ml-4">
-                        <li>Tạo bot mới qua <a href="https://t.me/BotFather" target="_blank" class="text-primary">@BotFather</a> và lấy Bot Token</li>
-                        <li>Lấy Chat ID của bạn từ <a href="https://t.me/userinfobot" target="_blank" class="text-primary">@userinfobot</a></li>
-                        <li>Nhập Bot Token và Chat ID vào form trên</li>
-                        <li>Thiết lập webhook với URL HTTPS (không phải localhost!)</li>
-                    </ol>
                 </div>
                 
                 <div class="sm:ml-20 sm:pl-5 mt-5">
