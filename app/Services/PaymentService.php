@@ -31,8 +31,8 @@ class PaymentService
      */
     public function __construct()
     {
-        // URL API của cardvip.vn để tạo giao dịch nạp thẻ (API mới: /api/rechargews)
-        $this->apiUrl = config('services.cardvip.api_url', 'https://partner.cardvip.vn/api/rechargews');
+        // URL API của cardvip.vn để tạo giao dịch nạp thẻ (API mới: /chargingws/v2)
+        $this->apiUrl = config('services.cardvip.api_url', 'http://api.cardvip.vn/chargingws/v2');
         // Partner ID từ config (lấy từ .env)
         $this->partnerId = config('services.cardvip.partner_id');
         // Partner Key từ config (lấy từ .env) - ưu tiên dùng partner_key
@@ -45,19 +45,16 @@ class PaymentService
 
     /**
      * Tạo chữ ký (signature) cho request CardVIP
-     * Format: md5(partner_key + partner_id + command + request_id)
+     * Format: md5(partner_key + code + serial)
      * 
-     * @param string $command - Command của API
-     * @param string $requestId - Request ID (optional)
+     * @param string $code - Mã PIN thẻ
+     * @param string $serial - Serial thẻ
      * @return string - MD5 hash signature
      */
-    private function generateSignature(string $command, string $requestId = ''): string
+    private function generateSignature(string $code, string $serial): string
     {
-        // Thứ tự mã hóa: partner_key + partner_id + command + request_id
-        $signString = $this->partnerKey . $this->partnerId . $command;
-        if (!empty($requestId)) {
-            $signString .= $requestId;
-        }
+        // Thứ tự mã hóa: partner_key + code + serial
+        $signString = $this->partnerKey . $code . $serial;
         return md5($signString);
     }
 
@@ -101,38 +98,50 @@ class PaymentService
             ];
         }
 
+        // Validate Partner ID và Partner Key
+        if (empty($this->partnerId) || empty($this->partnerKey)) {
+            Log::error('CardVIP API Configuration Missing', [
+                'partner_id' => $this->partnerId,
+                'partner_key_set' => !empty($this->partnerKey)
+            ]);
+            return [
+                'success' => false,
+                'message' => 'Cấu hình API chưa đầy đủ. Vui lòng kiểm tra lại Partner ID và Partner Key trong .env',
+                'requestId' => null
+            ];
+        }
+
         // Prepare data for API mới của CardVIP
-        // Format mới: partner_id, command, sign (MD5 hash)
-        $command = 'exchange'; // Command để đổi thẻ cào
+        // Format theo tài liệu: /chargingws/v2 với form-data
+        $command = 'charging'; // Command để gửi thẻ lên hệ thống
         
-        // Tạo signature: md5(partner_key + partner_id + command + request_id)
-        $sign = $this->generateSignature($command, $requestId);
-        
-        // Map loại thẻ sang format CardVIP mới
-        $cardTypeMap = [
-            'VIETTEL' => 'viettel',
-            'VINAPHONE' => 'vinaphone',
-            'MOBIFONE' => 'mobifone',
-            'GATE' => 'gate',
-            'ZING' => 'zing',
-            'VNMOBI' => 'vnmobi',
-            'VIETNAMOBILE' => 'vietnamobile'
+        // Map loại thẻ sang format CardVIP (telco)
+        $telcoMap = [
+            'VIETTEL' => 'VIETTEL',
+            'VINAPHONE' => 'VINAPHONE',
+            'MOBIFONE' => 'MOBIFONE',
+            'GATE' => 'GATE',
+            'ZING' => 'ZING',
+            'VNMOBI' => 'VNMOBI',
+            'VIETNAMOBILE' => 'VIETNAMOBILE'
         ];
         
         $cardType = strtoupper($type);
-        $networkCode = $cardTypeMap[$cardType] ?? strtolower($cardType);
+        $telco = $telcoMap[$cardType] ?? $cardType;
         
-        // Format request mới theo tài liệu CardVIP
+        // Tạo signature: md5(partner_key + code + serial)
+        $sign = $this->generateSignature($pin, $serial);
+        
+        // Format request theo tài liệu CardVIP (form-data)
         $dataPost = [
-            'partner_id' => $this->partnerId,
-            'command' => $command,
+            'telco' => $telco,
+            'code' => $pin, // Mã PIN thẻ
+            'serial' => $serial, // Serial thẻ
+            'amount' => $amount, // Mệnh giá
             'request_id' => $requestId,
-            'pin' => $pin,
-            'serial' => $serial,
-            'type' => $networkCode,
-            'amount' => $amount,
-            'callback_url' => $this->callback,
-            'sign' => $sign
+            'partner_id' => $this->partnerId,
+            'sign' => $sign,
+            'command' => $command
         ];
 
         try {
@@ -142,9 +151,9 @@ class PaymentService
                 'data' => $dataPost
             ]);
             
-            // Send request to cardvip API
+            // Send request to cardvip API (form-data, không phải JSON)
             $response = Http::timeout(30)
-                ->withHeaders(['Content-Type' => 'application/json'])
+                ->asForm() // Gửi dưới dạng form-data
                 ->post($this->apiUrl, $dataPost);
 
             // Log response để debug
@@ -169,24 +178,23 @@ class PaymentService
 
             $result = $response->json();
             
-            // Format response mới: {"status": "success", "data": {...}}
-            $apiStatus = $result['status'] ?? null;
-            $data = $result['data'] ?? [];
-            $message = $result['message'] ?? ($result['error'] ?? '');
+            // Format response mới: {"trans_id": 8, "request_id": "...", "status": 99, "message": "PENDING", ...}
+            // Status codes: 1=thành công đúng mệnh giá, 2=thành công sai mệnh giá, 3=thẻ lỗi, 4=bảo trì, 99=chờ xử lý, 100=thất bại
+            $apiStatus = isset($result['status']) ? (int)$result['status'] : null;
+            $message = $result['message'] ?? '';
+            $transId = $result['trans_id'] ?? null;
+            $responseRequestId = $result['request_id'] ?? $requestId;
 
             // Kiểm tra status từ API
-            if ($apiStatus === 'success') {
-                // Lấy order_code từ response (nếu có)
-                $orderCode = $data['order_code'] ?? $requestId;
-                
-                // Save card transaction to database
+            if ($apiStatus === 99) {
+                // Thẻ chờ xử lý - lưu vào database với status pending
                 Card::create([
                     'uid' => $userId,
                     'pin' => $pin,
                     'serial' => $serial,
                     'type' => strtoupper($type),
                     'amount' => (string)$amount,
-                    'requestid' => $orderCode, // Dùng order_code từ API hoặc request_id
+                    'requestid' => $responseRequestId,
                     'status' => 0, // Pending
                     'time' => now()->format('d/m/Y - H:i:s'),
                     'time2' => now()->format('d/m/Y'),
@@ -196,11 +204,62 @@ class PaymentService
                 return [
                     'success' => true,
                     'message' => 'Nạp thẻ thành công, vui lòng chờ 30s - 1 phút để duyệt',
-                    'requestId' => $orderCode
+                    'requestId' => $responseRequestId
+                ];
+            } elseif ($apiStatus === 1 || $apiStatus === 2) {
+                // Thẻ thành công (đúng hoặc sai mệnh giá) - lưu và cập nhật số dư ngay
+                $valueReceived = isset($result['amount']) ? (int)$result['amount'] : $amount;
+                
+                Card::create([
+                    'uid' => $userId,
+                    'pin' => $pin,
+                    'serial' => $serial,
+                    'type' => strtoupper($type),
+                    'amount' => (string)$amount,
+                    'requestid' => $responseRequestId,
+                    'status' => 1, // Thành công
+                    'time' => now()->format('d/m/Y - H:i:s'),
+                    'time2' => now()->format('d/m/Y'),
+                    'time3' => now()->format('Y-m')
+                ]);
+
+                // Cập nhật số dư user
+                $user = User::find($userId);
+                if ($user) {
+                    $user->tien = (int)$user->tien + $valueReceived;
+                    $user->save();
+                }
+
+                return [
+                    'success' => true,
+                    'message' => 'Nạp thẻ thành công! Số dư đã được cập nhật.',
+                    'requestId' => $responseRequestId
+                ];
+            } elseif ($apiStatus === 100) {
+                // Gửi thẻ thất bại
+                $errorMessage = $message ?: 'Gửi thẻ thất bại';
+                return [
+                    'success' => false,
+                    'message' => $errorMessage,
+                    'requestId' => null
+                ];
+            } elseif ($apiStatus === 3) {
+                // Thẻ lỗi
+                return [
+                    'success' => false,
+                    'message' => 'Thẻ không hợp lệ hoặc đã được sử dụng',
+                    'requestId' => null
+                ];
+            } elseif ($apiStatus === 4) {
+                // Hệ thống bảo trì
+                return [
+                    'success' => false,
+                    'message' => 'Hệ thống đang bảo trì, vui lòng thử lại sau',
+                    'requestId' => null
                 ];
             } else {
-                // API trả về lỗi
-                $errorMessage = $message ?: ($data['message'] ?? 'Có lỗi khi gửi thẻ');
+                // Status không xác định
+                $errorMessage = $message ?: 'Có lỗi khi gửi thẻ (Status: ' . $apiStatus . ')';
                 return [
                     'success' => false,
                     'message' => $errorMessage,
@@ -230,12 +289,16 @@ class PaymentService
      */
     public function verifyCallback(array $data, string $signature = ''): bool
     {
-        // CardVIP doesn't use signature verification in the current implementation
-        // Just validate that required fields exist
-        $requiredFields = ['status', 'requestid', 'card_code', 'card_seri'];
+        // CardVIP callback format mới: cần có request_id và status
+        // Có thể có: trans_id, request_id, status, message, amount, value, declared_value, telco, code, serial
+        $requiredFields = ['request_id', 'status'];
         
         foreach ($requiredFields as $field) {
             if (!isset($data[$field])) {
+                // Fallback cho format cũ
+                if ($field === 'request_id' && isset($data['requestid'])) {
+                    continue;
+                }
                 return false;
             }
         }
@@ -252,9 +315,12 @@ class PaymentService
      */
     public function processCallback(array $data): array
     {
-        $status = $data['status'] ?? null;
-        $requestId = $data['requestid'] ?? null;
-        $valueCustomerReceive = (int)($data['value_customer_receive'] ?? 0);
+        // Format mới: request_id (hoặc requestid), status (1, 2, 3, 4, 99, 100), amount, value
+        $requestId = $data['request_id'] ?? $data['requestid'] ?? null;
+        $status = isset($data['status']) ? (int)$data['status'] : null;
+        $amount = isset($data['amount']) ? (int)$data['amount'] : 0; // Giá trị thực nhận được
+        $value = isset($data['value']) ? (int)$data['value'] : $amount; // Giá trị thực (fallback)
+        $declaredValue = isset($data['declared_value']) ? (int)$data['declared_value'] : 0; // Mệnh giá khai báo
 
         if (!$requestId) {
             return [
@@ -274,22 +340,23 @@ class PaymentService
             ];
         }
 
-        // Process based on status
-        if ($status == "200") {
-            // Card is correct - update status and add balance
+        // Process based on status (theo tài liệu: 1=thành công đúng mệnh giá, 2=thành công sai mệnh giá, 3=thẻ lỗi, 4=bảo trì, 99=chờ xử lý, 100=thất bại)
+        if ($status === 1) {
+            // Thẻ thành công đúng mệnh giá
             $card->status = 1;
             $card->save();
 
             // Add balance to user
             $user = User::find($card->uid);
             if ($user) {
-                $user->tien = (int)$user->tien + $valueCustomerReceive;
+                $valueToAdd = $amount > 0 ? $amount : $value;
+                $user->tien = (int)$user->tien + $valueToAdd;
                 $user->save();
                 
-                Log::info('Card processed successfully', [
+                Log::info('Card processed successfully (correct value)', [
                     'requestid' => $requestId,
                     'user_id' => $user->id,
-                    'amount' => $valueCustomerReceive
+                    'amount' => $valueToAdd
                 ]);
             }
 
@@ -297,37 +364,57 @@ class PaymentService
                 'success' => true,
                 'message' => 'Card processed successfully'
             ];
-        } elseif ($status == "100") {
-            // Card is incorrect
-            $card->status = 2;
-            $card->save();
-
-            Log::info('Card marked as incorrect', ['requestid' => $requestId]);
-
-            return [
-                'success' => true,
-                'message' => 'Card marked as incorrect'
-            ];
-        } elseif ($status == "201") {
-            // Card wrong denomination - still add the actual value
+        } elseif ($status === 2) {
+            // Thẻ thành công sai mệnh giá - vẫn cộng số tiền thực nhận
             $card->status = 1;
             $card->save();
 
             $user = User::find($card->uid);
             if ($user) {
-                $user->tien = (int)$user->tien + $valueCustomerReceive;
+                $valueToAdd = $amount > 0 ? $amount : $value;
+                $user->tien = (int)$user->tien + $valueToAdd;
                 $user->save();
                 
-                Log::info('Card with wrong denomination processed', [
+                Log::info('Card processed with wrong denomination', [
                     'requestid' => $requestId,
                     'user_id' => $user->id,
-                    'amount' => $valueCustomerReceive
+                    'amount' => $valueToAdd,
+                    'declared_value' => $declaredValue
                 ]);
             }
 
             return [
                 'success' => true,
                 'message' => 'Card processed with wrong denomination'
+            ];
+        } elseif ($status === 3) {
+            // Thẻ lỗi
+            $card->status = 2;
+            $card->save();
+
+            Log::info('Card marked as invalid', ['requestid' => $requestId]);
+
+            return [
+                'success' => true,
+                'message' => 'Card marked as invalid'
+            ];
+        } elseif ($status === 100) {
+            // Gửi thẻ thất bại
+            $card->status = 2;
+            $card->save();
+
+            Log::info('Card processing failed', ['requestid' => $requestId]);
+
+            return [
+                'success' => true,
+                'message' => 'Card processing failed'
+            ];
+        } elseif ($status === 99) {
+            // Thẻ chờ xử lý - không làm gì, chờ callback tiếp theo
+            Log::info('Card pending', ['requestid' => $requestId]);
+            return [
+                'success' => true,
+                'message' => 'Card is pending'
             ];
         }
 

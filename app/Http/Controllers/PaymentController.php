@@ -136,9 +136,17 @@ class PaymentController extends Controller
         // Log callback for debugging
         Log::info('CardVIP Callback Received', $request->all());
 
-        // Get callback data
+        // Get callback data (format mới: request_id, status, amount, value, declared_value, telco, code, serial)
         $data = [
+            'request_id' => $request->input('request_id') ?: $request->input('requestid'), // Format mới hoặc cũ
             'status' => $request->input('status'),
+            'amount' => $request->input('amount'),
+            'value' => $request->input('value'),
+            'declared_value' => $request->input('declared_value'),
+            'telco' => $request->input('telco'),
+            'code' => $request->input('code'),
+            'serial' => $request->input('serial'),
+            // Fallback cho format cũ
             'pricesvalue' => $request->input('pricesvalue'),
             'value_receive' => $request->input('value_receive'),
             'card_code' => $request->input('card_code'),
